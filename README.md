@@ -1,4 +1,4 @@
-# WhatsApp Guest Confirmation Bot
+# WhatsApp RSVP Bot
 
 A WhatsApp chatbot that confirms guest arrival for an event.
 
