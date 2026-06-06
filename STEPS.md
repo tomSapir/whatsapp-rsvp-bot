@@ -19,7 +19,7 @@ and the template steps need live Meta/OpenAI access.
 2. [x] 🧩 Pin dependencies in `requirements.txt`: `fastapi`, `uvicorn[standard]`,
    `sqlalchemy`, `pydantic-settings`, `phonenumbers`, `openai`, `apscheduler`,
    `streamlit`, `httpx`, `pytest`.
-3. [ ] 🧩 Create a virtualenv and install the deps.
+3. [x] 🧩 Create a virtualenv and install the deps.
 4. [ ] 🌐 Meta: create the app, add the WhatsApp product, note `PHONE_NUMBER_ID`, the test
    sender number, an access token, and the **App Secret**; register your test recipient
    number(s). *(PLAN §10)*

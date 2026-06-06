@@ -30,3 +30,8 @@ Things to look up and learn online later. Each item notes where it shows up in t
   gitignored, so this file is how someone cloning the repo learns what config to supply; copy it to
   `.env` and fill in real values. Look up: the `.env` convention and how `pydantic-settings` loads
   it into `app/config.py`. (M0 scaffolding, PLAN.md §10.)
+- [ ] **`requirements.lock`** — the *frozen* dependency list. `pip freeze` after install records
+  every package **plus all its transitive dependencies** at exact `==` versions, so a fresh
+  `pip install -r requirements.lock` rebuilds the identical environment. The split: `requirements.txt`
+  declares loose floors (what we *want*); the lock captures what actually resolved (what we *got*).
+  Look up: why lock files matter for reproducible builds, and the floors-vs-lock workflow. (M0 install step.)
