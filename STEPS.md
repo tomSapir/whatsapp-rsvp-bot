@@ -23,10 +23,10 @@ and the template steps need live Meta/OpenAI access.
 4. [ ] 🌐 Meta: create the app, add the WhatsApp product, note `PHONE_NUMBER_ID`, the test
    sender number, an access token, and the **App Secret**; register your test recipient
    number(s). *(PLAN §10)*
-5. [ ] 🌐 Get an OpenAI API key.
+5. [x] 🌐 Get an OpenAI API key.
 6. [ ] 🌐 Install a tunnel (named cloudflared tunnel or ngrok reserved domain) for a stable
    webhook URL. *(PLAN §7)*
-7. [ ] 🧩 `app/config.py` — load settings from env via `pydantic-settings`: WhatsApp token,
+7. [x] 🧩 `app/config.py` — load settings from env via `pydantic-settings`: WhatsApp token,
    `PHONE_NUMBER_ID`, App Secret, webhook verify token, OpenAI key, DB path, reminder delay
    `N` + max count.
 
