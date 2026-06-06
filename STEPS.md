@@ -20,7 +20,7 @@ and the template steps need live Meta/OpenAI access.
    `sqlalchemy`, `pydantic-settings`, `phonenumbers`, `openai`, `apscheduler`,
    `streamlit`, `httpx`, `pytest`.
 3. [x] 🧩 Create a virtualenv and install the deps.
-4. [ ] 🌐 Meta: create the app, add the WhatsApp product, note `PHONE_NUMBER_ID`, the test
+4. [x] 🌐 Meta: create the app, add the WhatsApp product, note `PHONE_NUMBER_ID`, the test
    sender number, an access token, and the **App Secret**; register your test recipient
    number(s). *(PLAN §10)*
 5. [x] 🌐 Get an OpenAI API key.
