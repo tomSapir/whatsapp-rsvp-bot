@@ -21,3 +21,12 @@ Things to look up and learn online later. Each item notes where it shows up in t
   endpoints, sends messages, and hosts the reminder scheduler. Look up: path operations, reading
   the raw `Request` body, `BackgroundTasks` (for ack-fast-then-process), and `TestClient` for
   tests. (PLAN.md §4, §9.)
+- [ ] **`.gitkeep`** — an empty placeholder file committed into an otherwise-empty folder.
+  Why it's needed: git tracks *files*, not directories, so an empty `host/`, `data/`, or `tests/`
+  would vanish on clone; the `.gitkeep` gives git something to track so the folder survives. It's
+  a naming *convention*, not a git feature (any filename works). (M0 scaffolding, STEPS.md.)
+- [ ] **`.env.example`** — a committed template that lists every environment variable the app
+  needs (names + placeholder/default values, no secrets). Why it's needed: the real `.env` is
+  gitignored, so this file is how someone cloning the repo learns what config to supply; copy it to
+  `.env` and fill in real values. Look up: the `.env` convention and how `pydantic-settings` loads
+  it into `app/config.py`. (M0 scaffolding, PLAN.md §10.)
