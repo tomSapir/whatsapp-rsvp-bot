@@ -32,15 +32,15 @@ and the template steps need live Meta/OpenAI access.
 
 ## M1 — Data layer
 
-1. [ ] 🧩 `app/db.py` — SQLAlchemy engine + session; enable the SQLite **WAL** pragma.
-2. [ ] 🧩 `app/models.py` — `Event`, `Invitation`, `Rsvp`, `Message` per PLAN §5:
+1. [x] 🧩 `app/db.py` — SQLAlchemy engine + session; enable the SQLite **WAL** pragma.
+2. [x] 🧩 `app/models.py` — `Event`, `Invitation`, `Rsvp`, `Message` per PLAN §5:
    - `Invitation.phone` **UNIQUE**; `status` (`draft`/`invited`/`confirmed`/`declined`);
      `conversation_state`; reminder fields.
    - `Rsvp` with **nullable** `party_size` + **CHECK** `attending=false ⇒ party_size IS NULL`.
    - `Message.wa_message_id` **UNIQUE** (idempotency key).
    - `Event` single row (couple names en/he, date, image path).
-3. [ ] 🧩 Table-creation / init helper.
-4. [ ] 🧪 Model constraint tests on a temp SQLite: unique phone, unique `wa_message_id`, the
+3. [x] 🧩 Table-creation / init helper.
+4. [x] 🧪 Model constraint tests on a temp SQLite: unique phone, unique `wa_message_id`, the
    declined⇒NULL check.
 
 ## M2 — Phone handling
