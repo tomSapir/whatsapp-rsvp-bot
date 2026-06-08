@@ -24,7 +24,7 @@ and the template steps need live Meta/OpenAI access.
    sender number, an access token, and the **App Secret**; register your test recipient
    number(s). *(PLAN §10)*
 5. [x] 🌐 Get an OpenAI API key.
-6. [ ] 🌐 Install a tunnel (named cloudflared tunnel or ngrok reserved domain) for a stable
+6. [x] 🌐 Install a tunnel (named cloudflared tunnel or ngrok reserved domain) for a stable
    webhook URL. *(PLAN §7)*
 7. [x] 🧩 `app/config.py` — load settings from env via `pydantic-settings`: WhatsApp token,
    `PHONE_NUMBER_ID`, App Secret, webhook verify token, OpenAI key, DB path, reminder delay
