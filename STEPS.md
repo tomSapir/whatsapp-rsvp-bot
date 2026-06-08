@@ -45,9 +45,9 @@ and the template steps need live Meta/OpenAI access.
 
 ## M2 — Phone handling
 
-1. [ ] 🧩 `app/phone.py` — validate + canonicalize to E.164 (region `IL` fallback,
+1. [x] 🧩 `app/phone.py` — validate + canonicalize to E.164 (region `IL` fallback,
    `+countrycode` overrides); reject invalid input. *(PLAN §7 · Q10)*
-2. [ ] 🧪 Tests: local IL (`054-…` → `+97254…`), explicit `+1…`, bare `wa_id`
+2. [x] 🧪 Tests: local IL (`054-…` → `+97254…`), explicit `+1…`, bare `wa_id`
    (`97254…` → `+97254…`), and invalid-input rejection.
 
 ## M3 — WhatsApp client (injectable seam)
