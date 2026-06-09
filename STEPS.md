@@ -52,10 +52,10 @@ and the template steps need live Meta/OpenAI access.
 
 ## M3 — WhatsApp client (injectable seam)
 
-1. [ ] 🧩 `app/whatsapp.py` — a client interface (`send_template`, `send_text`,
+1. [x] 🧩 `app/whatsapp.py` — a client interface (`send_template`, `send_text`,
    `send_interactive`): a real Graph API implementation (`graph.facebook.com/v21.0`, Bearer
    token) **and** a `FakeWhatsAppClient` that records sends. *(PLAN §9, §12)*
-2. [ ] 🧪 Tests using the fake (assert "template X sent to +972…").
+2. [x] 🧪 Tests using the fake (assert "template X sent to +972…").
 
 ## M4 — Webhook ingestion
 
