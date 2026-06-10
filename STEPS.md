@@ -87,10 +87,10 @@ and the template steps need live Meta/OpenAI access.
 
 ## M6 — Notifications
 
-1. [ ] 🧩 `app/notify.py` — append host-facing events to the activity-feed source (swappable
+1. [x] 🧩 `app/notify.py` — append host-facing events to the activity-feed source (swappable
    seam): replies, RSVP changes, unknown numbers, questions, validation failures.
    *(PLAN §6 · Q2)*
-2. [ ] 🧪 Tests: each event type produces a feed entry.
+2. [x] 🧪 Tests: each event type produces a feed entry.
 
 ## M7 — Reminders
 

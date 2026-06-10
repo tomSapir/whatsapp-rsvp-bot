@@ -1,4 +1,4 @@
-"""ORM models — the four tables behind the RSVP bot (PLAN §5).
+"""ORM models — the tables behind the RSVP bot (PLAN §5, plus the M6 activity feed).
 
 Design notes:
 
@@ -212,3 +212,21 @@ class Message(Base):
     raw_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     invitation: Mapped[Invitation | None] = relationship(back_populates="messages")
+
+
+class HostNotification(Base):
+    """One activity-feed entry for the Host (PLAN §6 · Q2 — the M6 feed source).
+
+    Appended by :class:`app.notify.FeedNotifier` (replies, RSVP changes, unknown numbers,
+    questions, validation failures) and read newest-first by the Streamlit dashboard. It
+    lives in the shared SQLite so the FastAPI process writes and the Streamlit process
+    reads. Append-only, like ``messages``; the human-readable ``text`` *is* the event.
+    """
+
+    __tablename__ = "host_notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
