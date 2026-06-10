@@ -59,17 +59,17 @@ and the template steps need live Meta/OpenAI access.
 
 ## M4 — Webhook ingestion
 
-1. [ ] 🧩 `app/webhook.py` — `GET /webhook` verify (echo `hub.challenge` when the verify
+1. [x] 🧩 `app/webhook.py` — `GET /webhook` verify (echo `hub.challenge` when the verify
    token matches).
-2. [ ] 🧩 `POST /webhook` — **signature gate first**: validate `X-Hub-Signature-256`
+2. [x] 🧩 `POST /webhook` — **signature gate first**: validate `X-Hub-Signature-256`
    (HMAC-SHA256 of the **raw body** with the App Secret, constant-time compare); drop on
    mismatch. *(PLAN §6/§7 · Q8)*
-3. [ ] 🧩 Branch the payload: `messages[]` → process, `statuses[]` → log/ignore.
+3. [x] 🧩 Branch the payload: `messages[]` → process, `statuses[]` → log/ignore.
    **Idempotency**: insert the `Message` row first; on `wa_message_id` conflict, ack and
    stop. **Ack `200` fast, then process.** *(PLAN §6 · Q4)*
-4. [ ] 🧩 Sender matching: normalize `wa_id` → E.164 → look up Invitation; no match → log +
+4. [x] 🧩 Sender matching: normalize `wa_id` → E.164 → look up Invitation; no match → log +
    notify (never auto-create). *(PLAN §6 · Q10)*
-5. [ ] 🧪 Tests: signature accept/reject, duplicate `wa_message_id` (no double-process),
+5. [x] 🧪 Tests: signature accept/reject, duplicate `wa_message_id` (no double-process),
    status-callback ignored, unknown-number path.
 
 ## M5 — Parsing & conversation state machine
