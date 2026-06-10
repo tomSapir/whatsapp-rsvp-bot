@@ -74,16 +74,16 @@ and the template steps need live Meta/OpenAI access.
 
 ## M5 — Parsing & conversation state machine
 
-1. [ ] 🧩 `app/parser.py` — OpenAI structured extraction (tool calling) returning
+1. [x] 🧩 `app/parser.py` — OpenAI structured extraction (tool calling) returning
    `{intent, attending, party_size, dietary, note, confidence}`, `intent` a **closed enum**;
    injectable + a stub for tests. *(PLAN §6 · Q5)*
-2. [ ] 🧩 `app/conversation.py` — button taps (Yes/No) → status / state / RSVP per the
+2. [x] 🧩 `app/conversation.py` — button taps (Yes/No) → status / state / RSVP per the
    **transition table**. *(PLAN §5)*
-3. [ ] 🧩 Free-text handling: control flow off `intent`; `null` never overwrites; flip
+3. [x] 🧩 Free-text handling: control flow off `intent`; `null` never overwrites; flip
    `attending` only on explicit yes/no; validate `party_size` range; `declined ⇒ party_size
    NULL`; question/other → notify Host. *(PLAN §6 · Q5/Q7)*
-4. [ ] 🧩 RSVP changes — latest reply wins; a Yes→No flip clears `party_size`. *(PLAN §6 · Q1)*
-5. [ ] 🧪 Table-driven state-machine tests + parser-stub tests for every rule above.
+4. [x] 🧩 RSVP changes — latest reply wins; a Yes→No flip clears `party_size`. *(PLAN §6 · Q1)*
+5. [x] 🧪 Table-driven state-machine tests + parser-stub tests for every rule above.
 
 ## M6 — Notifications
 
