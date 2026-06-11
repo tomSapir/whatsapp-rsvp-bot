@@ -24,13 +24,15 @@ RSVP changes are handled too: the **latest reply always wins**.
 
 ## Status
 
-📋 **Plan finalized — implementation not started.** See **[STEPS.md](./STEPS.md)** for the
-step-by-step build sequence.
+🔧 **Code complete (M0–M9) — 125 offline tests passing.** What remains is the live Meta
+side: template approval in WhatsApp Manager and the manual smoke test (STEPS M9.3–9.4).
 
 - [x] Requirements & plan finalized — [PLAN.md](./PLAN.md)
 - [x] Domain language defined — [CONTEXT.md](./CONTEXT.md)
 - [x] Architecture defined
-- [ ] Implementation — [STEPS.md](./STEPS.md)
+- [x] Implementation M0–M9 — [STEPS.md](./STEPS.md) (see [learning/](./learning) for
+  plain-words write-ups of each milestone)
+- [ ] WhatsApp template approval + live smoke test
 
 ## Architecture at a glance
 
@@ -86,9 +88,9 @@ whatsapp-rsvp-bot/
 3. Install deps: `pip install -r requirements.txt`.
 4. Run the three processes:
    ```bash
-   uvicorn app.webhook:app --reload      # FastAPI engine (port 8000)
-   streamlit run host/dashboard.py       # Host app
-   cloudflared tunnel run <name>         # stable public webhook URL → :8000
+   uvicorn app.main:create_app --factory --port 8000   # FastAPI engine + reminder job
+   streamlit run host/dashboard.py                     # Host app
+   ngrok http --domain=<reserved-domain> 8000          # stable public webhook URL → :8000
    ```
 5. Register the tunnel's `/webhook` URL (with your verify token) in the Meta dashboard.
 

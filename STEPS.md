@@ -114,13 +114,14 @@ and the template steps need live Meta/OpenAI access.
 
 ## M9 — Integration, templates & run
 
-1. [ ] 🧩 Wire dependency injection: real WhatsApp/OpenAI clients in the app, fakes/stubs in
-   tests.
-2. [ ] 🧪 End-to-end webhook fixture tests through FastAPI `TestClient` (button Yes/No, he/en
+1. [x] 🧩 Wire dependency injection: real WhatsApp/OpenAI clients in the app, fakes/stubs in
+   tests. *(`app/main.py` → `uvicorn app.main:create_app --factory`)*
+2. [x] 🧪 End-to-end webhook fixture tests through FastAPI `TestClient` (button Yes/No, he/en
    free text, status callback, unknown number, duplicate).
 3. [ ] 🌐 Create + submit the bilingual **invite** and **reminder** templates (Yes/No
    quick-reply buttons, optional image header) in WhatsApp Manager; wait for approval.
    *(PLAN §6/§7)*
 4. [ ] 🌐 Manual smoke test: run uvicorn + streamlit + tunnel, register the `/webhook` URL,
    send yourself an invite, reply, and watch it flow to the dashboard.
-5. [ ] 🧪 *(Optional)* opt-in `llm_eval` suite hitting real OpenAI with ~10 he/en phrases.
+5. [x] 🧪 *(Optional)* opt-in `llm_eval` suite hitting real OpenAI with ~10 he/en phrases.
+   *(`RUN_LLM_EVAL=1 pytest tests/test_llm_eval.py`)*
