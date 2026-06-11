@@ -102,13 +102,13 @@ and the template steps need live Meta/OpenAI access.
 
 ## M8 — Streamlit app
 
-1. [ ] 🎨 **Event setup** page: couple names (en/he), date, optional image upload → the
+1. [x] 🎨 **Event setup** page: couple names (en/he), date, optional image upload → the
    single `event` row.
-2. [ ] 🎨 **Invitation CRUD**: add/edit with validated phone entry + language; "invited
+2. [x] 🎨 **Invitation CRUD**: add/edit with validated phone entry + language; "invited
    twice" duplicate guard.
-3. [ ] 🎨 **Actions**: Send invites (`draft`→`invited`), Remind non-responders, Nudge for
+3. [x] 🎨 **Actions**: Send invites (`draft`→`invited`), Remind non-responders, Nudge for
    details, Re-invite. *(PLAN §8 · Q3/Q11)*
-4. [ ] 🎨 **Dashboard**: buckets (Coming / Declined / Awaiting reply / Not invited),
+4. [x] 🎨 **Dashboard**: buckets (Coming / Declined / Awaiting reply / Not invited),
    headcount (known heads + count of unknown-size attending), dietary breakdown, activity
    feed, CSV export (unknown size = 1, flagged). *(PLAN §8 · Q11)*
 
