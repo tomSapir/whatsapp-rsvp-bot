@@ -94,10 +94,10 @@ and the template steps need live Meta/OpenAI access.
 
 ## M7 — Reminders
 
-1. [ ] 🧩 `app/reminders.py` — APScheduler job: find `invited` + `invited_at` older than `N`
+1. [x] 🧩 `app/reminders.py` — APScheduler job: find `invited` + `invited_at` older than `N`
    + `reminder_count < max` + **before `event_date`**; re-send the template; increment the
    count. *(PLAN §6 · Q3/Q6)*
-2. [ ] 🧪 Logic tests with a fake client + injected clock (eligible vs not, cutoff after the
+2. [x] 🧪 Logic tests with a fake client + injected clock (eligible vs not, cutoff after the
    event date, max-count stop).
 
 ## M8 — Streamlit app
