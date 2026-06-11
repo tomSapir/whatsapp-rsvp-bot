@@ -23,9 +23,12 @@ match (or unparseable) → log the message with no invitation and notify the Hos
 auto-create an Invitation.
 
 Everything is built through a factory taking explicit dependencies (verify token, app
-secret, sessionmaker, notify callable), so tests run it against a temp SQLite with a
-recording notifier and M9 wires the real settings in. ``notify`` is a thin seam: M6
-replaces the default (a log line) with the activity-feed appender.
+secret, sessionmaker, notify callable, WhatsApp client, reply parser), so tests run it
+against a temp SQLite with fakes and the production wiring (``app/main.py``) passes the
+real clients built from settings. After ingestion, a matched message is routed into the
+M5 conversation engine: button/interactive replies deterministically, text through the
+parser. ``whatsapp``/``parser`` are optional — without them the router ingests only
+(M4 behavior), which keeps the ingestion tests independent of the engine.
 """
 
 from __future__ import annotations
@@ -44,8 +47,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.conversation import handle_button_reply, handle_text_reply
 from app.models import Invitation, Message, MessageDirection, MessageType
+from app.parser import ReplyParser
 from app.phone import InvalidPhoneNumber, normalize_phone
+from app.whatsapp import WhatsAppClient
 
 logger = logging.getLogger(__name__)
 
@@ -128,15 +134,19 @@ def _ingest_message(
     message: dict[str, Any],
     session_factory: sessionmaker[Session],
     notify: Notifier,
+    whatsapp: WhatsAppClient | None = None,
+    parser: ReplyParser | None = None,
 ) -> None:
-    """Ingest one inbound message: match sender, insert the audit row, route unknowns.
+    """Ingest one inbound message: match sender, insert the audit row, then route it.
 
     The insert is the idempotency gate (PLAN §6): a re-delivered event collides on the
-    UNIQUE ``wa_message_id`` and we stop — crucially *before* the unknown-sender notify,
-    so a duplicate never re-notifies the Host.
+    UNIQUE ``wa_message_id`` and we stop — crucially *before* the unknown-sender notify
+    and the conversation engine, so a duplicate never re-notifies or double-processes.
     """
     wa_message_id = message.get("id")
     wa_id = message.get("from")
+    body = _extract_body(message)
+    message_type = message.get("type")
 
     with session_factory() as session:
         invitation = _match_invitation(session, wa_id)
@@ -144,8 +154,8 @@ def _ingest_message(
             Message(
                 invitation_id=invitation.id if invitation else None,
                 direction=MessageDirection.inbound,
-                type=_MESSAGE_TYPES.get(message.get("type"), MessageType.text),
-                body=_extract_body(message),
+                type=_MESSAGE_TYPES.get(message_type, MessageType.text),
+                body=body,
                 wa_message_id=wa_message_id,
                 timestamp=_parse_timestamp(message),
                 raw_json=json.dumps(message, ensure_ascii=False),
@@ -158,17 +168,34 @@ def _ingest_message(
             logger.info("duplicate webhook delivery for %s — skipping", wa_message_id)
             return
 
-    if invitation is None:
-        notify(f"📩 Message from an unknown number ({wa_id}) — no invitation matches.")
-        return
+        if invitation is None:
+            notify(f"📩 Message from an unknown number ({wa_id}) — no invitation matches.")
+            return
 
-    # M5 hooks in here: route the message through the conversation state machine.
+        if whatsapp is None or parser is None:
+            return  # ingestion-only wiring (M4 tests); production always passes both
+
+        # Route into the M5 conversation engine, inside the same session.
+        if message_type in ("button", "interactive") and body:
+            handle_button_reply(
+                session, invitation, body, whatsapp=whatsapp, notify=notify
+            )
+        elif message_type == "text" and body:
+            handle_text_reply(
+                session, invitation, body, parser=parser, whatsapp=whatsapp, notify=notify
+            )
+        else:
+            logger.info(
+                "unhandled inbound type %r from %s — logged only", message_type, wa_id
+            )
 
 
 def process_payload(
     payload: dict[str, Any],
     session_factory: sessionmaker[Session],
     notify: Notifier,
+    whatsapp: WhatsAppClient | None = None,
+    parser: ReplyParser | None = None,
 ) -> None:
     """Process one verified webhook payload: statuses are logged, messages ingested.
 
@@ -181,7 +208,7 @@ def process_payload(
                 "status callback: %s is %s", status.get("id"), status.get("status")
             )
         for message in value.get("messages", []):
-            _ingest_message(message, session_factory, notify)
+            _ingest_message(message, session_factory, notify, whatsapp, parser)
 
 
 def create_webhook_router(
@@ -190,6 +217,8 @@ def create_webhook_router(
     app_secret: str,
     session_factory: sessionmaker[Session],
     notify: Notifier | None = None,
+    whatsapp: WhatsAppClient | None = None,
+    parser: ReplyParser | None = None,
 ) -> APIRouter:
     """Build the webhook router with its dependencies bound (tests pass fakes; M9 wires real)."""
     notify = notify or (lambda text: logger.warning("host notification: %s", text))
@@ -221,7 +250,9 @@ def create_webhook_router(
             payload = json.loads(raw_body)
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="invalid JSON")
-        background_tasks.add_task(process_payload, payload, session_factory, notify)
+        background_tasks.add_task(
+            process_payload, payload, session_factory, notify, whatsapp, parser
+        )
         return {"status": "received"}  # ack fast; processing continues in the background
 
     return router
@@ -233,6 +264,8 @@ def create_webhook_app(
     app_secret: str,
     session_factory: sessionmaker[Session],
     notify: Notifier | None = None,
+    whatsapp: WhatsAppClient | None = None,
+    parser: ReplyParser | None = None,
 ) -> FastAPI:
     """A FastAPI app exposing just the webhook (M9 mounts this with real settings)."""
     app = FastAPI()
@@ -242,6 +275,8 @@ def create_webhook_app(
             app_secret=app_secret,
             session_factory=session_factory,
             notify=notify,
+            whatsapp=whatsapp,
+            parser=parser,
         )
     )
     return app
