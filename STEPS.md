@@ -118,7 +118,7 @@ and the template steps need live Meta/OpenAI access.
    tests. *(`app/main.py` → `uvicorn app.main:create_app --factory`)*
 2. [x] 🧪 End-to-end webhook fixture tests through FastAPI `TestClient` (button Yes/No, he/en
    free text, status callback, unknown number, duplicate).
-3. [ ] 🌐 Create + submit the bilingual **invite** and **reminder** templates (Yes/No
+3. [x] 🌐 Create + submit the bilingual **invite** and **reminder** templates (Yes/No
    quick-reply buttons, optional image header) in WhatsApp Manager; wait for approval.
    *(PLAN §6/§7)*
 4. [ ] 🌐 Manual smoke test: run uvicorn + streamlit + tunnel, register the `/webhook` URL,

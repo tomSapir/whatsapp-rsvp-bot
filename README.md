@@ -86,7 +86,8 @@ whatsapp-rsvp-bot/
    product, tokens, App Secret, OpenAI key, tunnel).
 2. Copy `.env.example` → `.env` and fill in the secrets.
 3. Install deps: `pip install -r requirements.txt`.
-4. Run the three processes:
+4. Run the three processes — `.\run.ps1` starts them all, or see **[RUNBOOK.md](./RUNBOOK.md)**
+   for the manual commands, health checks, and troubleshooting:
    ```bash
    uvicorn app.main:create_app --factory --port 8000   # FastAPI engine + reminder job
    streamlit run host/dashboard.py                     # Host app
@@ -96,6 +97,7 @@ whatsapp-rsvp-bot/
 
 ## Documentation
 
+- **[RUNBOOK.md](./RUNBOOK.md)** — how to launch everything, health checks, troubleshooting
 - **[PLAN.md](./PLAN.md)** — full project plan (architecture, data model, flows, risks)
 - **[CONTEXT.md](./CONTEXT.md)** — domain glossary (the project's shared language)
 - **[STEPS.md](./STEPS.md)** — step-by-step implementation sequence
