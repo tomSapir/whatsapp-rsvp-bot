@@ -12,8 +12,13 @@ what lets the two processes share it safely.
 
 from __future__ import annotations
 
+import sys
 from datetime import date
 from pathlib import Path
+
+# Streamlit puts this file's directory (host/) on sys.path, not the repo root, so the
+# `app` package next door is invisible without this.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
@@ -63,8 +68,36 @@ with event_tab:
         current = session.query(Event).one_or_none()
 
     with st.form("event_form"):
-        name_en = st.text_input("Couple names (English)", value=current.couple_name_en if current else "")
-        name_he = st.text_input("Couple names (Hebrew)", value=current.couple_name_he if current else "")
+        st.markdown("**Couple names — English**")
+        en1, en2 = st.columns(2)
+        p1_first_en = en1.text_input(
+            "Partner 1 — first name", value=current.partner1_first_en if current else ""
+        )
+        p1_last_en = en2.text_input(
+            "Partner 1 — last name", value=current.partner1_last_en if current else ""
+        )
+        p2_first_en = en1.text_input(
+            "Partner 2 — first name", value=current.partner2_first_en if current else ""
+        )
+        p2_last_en = en2.text_input(
+            "Partner 2 — last name", value=current.partner2_last_en if current else ""
+        )
+
+        st.markdown("**Couple names — Hebrew (עברית)**")
+        he1, he2 = st.columns(2)
+        p1_first_he = he1.text_input(
+            "Partner 1 — first name (he)", value=current.partner1_first_he if current else ""
+        )
+        p1_last_he = he2.text_input(
+            "Partner 1 — last name (he)", value=current.partner1_last_he if current else ""
+        )
+        p2_first_he = he1.text_input(
+            "Partner 2 — first name (he)", value=current.partner2_first_he if current else ""
+        )
+        p2_last_he = he2.text_input(
+            "Partner 2 — last name (he)", value=current.partner2_last_he if current else ""
+        )
+
         event_date = st.date_input(
             "Event date", value=current.event_date if current else date.today()
         )
@@ -78,8 +111,14 @@ with event_tab:
             with session_factory() as session:
                 actions.upsert_event(
                     session,
-                    couple_name_en=name_en,
-                    couple_name_he=name_he,
+                    partner1_first_en=p1_first_en,
+                    partner1_last_en=p1_last_en,
+                    partner2_first_en=p2_first_en,
+                    partner2_last_en=p2_last_en,
+                    partner1_first_he=p1_first_he,
+                    partner1_last_he=p1_last_he,
+                    partner2_first_he=p2_first_he,
+                    partner2_last_he=p2_last_he,
                     event_date=event_date,
                     image_path=image_path,
                 )

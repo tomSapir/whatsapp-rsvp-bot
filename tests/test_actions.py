@@ -55,23 +55,30 @@ def whatsapp():
 # --- Event setup ------------------------------------------------------------------------------
 
 
+COUPLE_NAMES = dict(
+    partner1_first_en="Ada",
+    partner1_last_en="Cohen",
+    partner2_first_en="Bo",
+    partner2_last_en="Levi",
+    partner1_first_he="עדה",
+    partner1_last_he="כהן",
+    partner2_first_he="בו",
+    partner2_last_he="לוי",
+)
+
+
 def test_upsert_event_creates_then_updates_single_row(session):
+    upsert_event(session, **COUPLE_NAMES, event_date=date(2026, 7, 1))
     upsert_event(
         session,
-        couple_name_en="Ada & Bo",
-        couple_name_he="עדה ובו",
-        event_date=date(2026, 7, 1),
-    )
-    upsert_event(
-        session,
-        couple_name_en="Ada & Bo!",
-        couple_name_he="עדה ובו",
+        **{**COUPLE_NAMES, "partner2_last_en": "Levi-Cohen"},
         event_date=date(2026, 7, 2),
         image_path="data/uploads/pic.png",
     )
 
     (event,) = session.query(Event).all()  # still one row — the CHECK stays happy
-    assert event.couple_name_en == "Ada & Bo!"
+    assert event.couple_name_en == "Ada Cohen & Bo Levi-Cohen"
+    assert event.couple_name_he == "עדה כהן ובו לוי"
     assert event.event_date == date(2026, 7, 2)
     assert event.image_path == "data/uploads/pic.png"
 

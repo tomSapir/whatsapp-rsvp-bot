@@ -266,9 +266,10 @@ def create_webhook_app(
     notify: Notifier | None = None,
     whatsapp: WhatsAppClient | None = None,
     parser: ReplyParser | None = None,
+    lifespan: Any = None,
 ) -> FastAPI:
     """A FastAPI app exposing just the webhook (M9 mounts this with real settings)."""
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
     app.include_router(
         create_webhook_router(
             verify_token=verify_token,

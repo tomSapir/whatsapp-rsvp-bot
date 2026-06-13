@@ -85,7 +85,10 @@ Two processes share one SQLite file:
 ## 5. Data model (initial)
 
 **event** (single row — set by the Host before the bot runs, via "Event setup" in the Streamlit app)
-- `couple_name_en`, `couple_name_he`, `event_date`, `image_path` (optional)
+- Couple names as first/last per partner, per language (`partner1_first_en`, `partner1_last_en`,
+  `partner2_first_en`, `partner2_last_en` + the four `_he` twins); `couple_name_en`/`couple_name_he`
+  are composed display properties ("Ada Cohen & Bo Levi" / "עדה כהן ובו לוי")
+- `event_date`, `image_path` (optional)
 - Exactly **one** Event per deployment; the implicit parent of every Invitation. Drives the
   invite template (couple names + optional header image) and acts as the **reminder cutoff**
   (no reminders fire after `event_date`). Also the fact source for Phase 2 Q&A.

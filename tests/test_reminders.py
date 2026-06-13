@@ -48,7 +48,17 @@ def whatsapp():
 
 def _add_event(session, event_date: date = EVENT_DATE) -> None:
     session.add(
-        Event(couple_name_en="Ada & Bo", couple_name_he="עדה ובו", event_date=event_date)
+        Event(
+            partner1_first_en="Ada",
+            partner1_last_en="Cohen",
+            partner2_first_en="Bo",
+            partner2_last_en="Levi",
+            partner1_first_he="עדה",
+            partner1_last_he="כהן",
+            partner2_first_he="בו",
+            partner2_last_he="לוי",
+            event_date=event_date,
+        )
     )
     session.commit()
 
