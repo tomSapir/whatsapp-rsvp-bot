@@ -107,14 +107,26 @@ def test_one_rsvp_per_invitation(session):
         session.commit()
 
 
+def _event(**overrides):
+    fields = dict(
+        partner1_first_en="Ada",
+        partner1_last_en="Cohen",
+        partner2_first_en="Bo",
+        partner2_last_en="Levi",
+        partner1_first_he="עדה",
+        partner1_last_he="כהן",
+        partner2_first_he="בו",
+        partner2_last_he="לוי",
+        event_date=date(2026, 7, 1),
+    )
+    fields.update(overrides)
+    return Event(**fields)
+
+
 def test_event_is_single_row(session):
-    session.add(
-        Event(couple_name_en="Ada & Bo", couple_name_he="עדה ובו", event_date=date(2026, 7, 1))
-    )
+    session.add(_event())
     session.commit()
-    session.add(
-        Event(couple_name_en="Cy & Di", couple_name_he="סיי ודי", event_date=date(2026, 8, 1))
-    )
+    session.add(_event(partner1_first_en="Cy", event_date=date(2026, 8, 1)))
     with pytest.raises(IntegrityError):
         session.commit()
 

@@ -111,10 +111,32 @@ class Event(Base):
     __table_args__ = (CheckConstraint("id = 1", name="event_single_row"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    couple_name_en: Mapped[str] = mapped_column(String, nullable=False)
-    couple_name_he: Mapped[str] = mapped_column(String, nullable=False)
+    partner1_first_en: Mapped[str] = mapped_column(String, nullable=False)
+    partner1_last_en: Mapped[str] = mapped_column(String, nullable=False)
+    partner2_first_en: Mapped[str] = mapped_column(String, nullable=False)
+    partner2_last_en: Mapped[str] = mapped_column(String, nullable=False)
+    partner1_first_he: Mapped[str] = mapped_column(String, nullable=False)
+    partner1_last_he: Mapped[str] = mapped_column(String, nullable=False)
+    partner2_first_he: Mapped[str] = mapped_column(String, nullable=False)
+    partner2_last_he: Mapped[str] = mapped_column(String, nullable=False)
     event_date: Mapped[date] = mapped_column(Date, nullable=False)
     image_path: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    @property
+    def couple_name_en(self) -> str:
+        """Display name, e.g. ``"Ada Cohen & Bo Levi"``."""
+        return (
+            f"{self.partner1_first_en} {self.partner1_last_en}"
+            f" & {self.partner2_first_en} {self.partner2_last_en}"
+        )
+
+    @property
+    def couple_name_he(self) -> str:
+        """Display name with the Hebrew conjunction, e.g. ``"עדה כהן ובו לוי"``."""
+        return (
+            f"{self.partner1_first_he} {self.partner1_last_he}"
+            f" ו{self.partner2_first_he} {self.partner2_last_he}"
+        )
 
 
 class Invitation(Base):

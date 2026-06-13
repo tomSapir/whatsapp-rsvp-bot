@@ -92,24 +92,35 @@ def _send_template_and_log(
 def upsert_event(
     session: Session,
     *,
-    couple_name_en: str,
-    couple_name_he: str,
+    partner1_first_en: str,
+    partner1_last_en: str,
+    partner2_first_en: str,
+    partner2_last_en: str,
+    partner1_first_he: str,
+    partner1_last_he: str,
+    partner2_first_he: str,
+    partner2_last_he: str,
     event_date: date_type,
     image_path: str | None = None,
 ) -> Event:
     """Create or update the single Event row (the ``CHECK (id = 1)`` guard stays happy)."""
+    names = {
+        "partner1_first_en": partner1_first_en,
+        "partner1_last_en": partner1_last_en,
+        "partner2_first_en": partner2_first_en,
+        "partner2_last_en": partner2_last_en,
+        "partner1_first_he": partner1_first_he,
+        "partner1_last_he": partner1_last_he,
+        "partner2_first_he": partner2_first_he,
+        "partner2_last_he": partner2_last_he,
+    }
     event = session.execute(select(Event)).scalar_one_or_none()
     if event is None:
-        event = Event(
-            couple_name_en=couple_name_en,
-            couple_name_he=couple_name_he,
-            event_date=event_date,
-            image_path=image_path,
-        )
+        event = Event(**names, event_date=event_date, image_path=image_path)
         session.add(event)
     else:
-        event.couple_name_en = couple_name_en
-        event.couple_name_he = couple_name_he
+        for field, value in names.items():
+            setattr(event, field, value)
         event.event_date = event_date
         event.image_path = image_path
     session.commit()
