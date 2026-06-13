@@ -94,7 +94,14 @@ class GraphWhatsAppClient(WhatsAppClient):
             json={"messaging_product": "whatsapp", **message},
             headers={"Authorization": f"Bearer {self._token}"},
         )
-        response.raise_for_status()
+        if response.is_error:
+            # Graph puts the actual reason (error code, template name, …) in the body;
+            # raise_for_status alone would discard it.
+            raise httpx.HTTPStatusError(
+                f"Graph API {response.status_code} for {self._url}: {response.text}",
+                request=response.request,
+                response=response,
+            )
         data = response.json()
         return SendResult(wa_message_id=data["messages"][0]["id"], raw=data)
 

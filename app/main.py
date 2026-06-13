@@ -16,6 +16,9 @@ without a single secret set.)
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.config import get_settings
@@ -37,21 +40,27 @@ def create_app() -> FastAPI:
     parser = build_reply_parser(settings)
     notify = FeedNotifier(session_factory)
 
-    app = create_webhook_app(
-        verify_token=settings.webhook_verify_token,
-        app_secret=settings.whatsapp_app_secret,
-        session_factory=session_factory,
-        notify=notify,
-        whatsapp=whatsapp,
-        parser=parser,
-    )
-
     scheduler = create_reminder_scheduler(
         session_factory,
         whatsapp,
         delay_days=settings.reminder_delay_days,
         max_count=settings.reminder_max_count,
     )
-    app.add_event_handler("startup", scheduler.start)
-    app.add_event_handler("shutdown", scheduler.shutdown)
-    return app
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        scheduler.start()
+        try:
+            yield
+        finally:
+            scheduler.shutdown()
+
+    return create_webhook_app(
+        verify_token=settings.webhook_verify_token,
+        app_secret=settings.whatsapp_app_secret,
+        session_factory=session_factory,
+        notify=notify,
+        whatsapp=whatsapp,
+        parser=parser,
+        lifespan=lifespan,
+    )
