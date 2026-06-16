@@ -13,6 +13,8 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.conversation import (
+    CONFIRM_ATTENDING_PROMPTS,
+    CONFIRM_DECLINED_PROMPTS,
     FOLLOW_UP_PROMPTS,
     handle_button_reply,
     handle_text_reply,
@@ -102,84 +104,86 @@ def _text(session, invitation, parsed, whatsapp, notifications, text="msg"):
 # --- The transition table, row by row (PLAN §5) ---------------------------------------------
 
 # (case id, prior RSVP (attending, party_size) or None, parsed reply,
-#  expected: status, conversation_state, attending, party_size, follow-up sent?)
+#  expected: status, conversation_state, attending, party_size, guest message sent)
+# `sent` is the single guest-facing message this reply triggers: None, "follow_up" (entering
+#  awaiting_details), or "confirm" (entering done — a confirmation/decline acknowledgement).
 TRANSITIONS = [
     (
         "button-yes-equivalent: first explicit yes, no size",
         None,
         ParsedReply(intent=Intent.rsvp_yes),
-        InvitationStatus.confirmed, ConversationState.awaiting_details, True, None, True,
+        InvitationStatus.confirmed, ConversationState.awaiting_details, True, None, "follow_up",
     ),
     (
         "first-contact free-text yes with size -> done in one shot",
         None,
         ParsedReply(intent=Intent.rsvp_yes, party_size=3, dietary="one vegan"),
-        InvitationStatus.confirmed, ConversationState.done, True, 3, False,
+        InvitationStatus.confirmed, ConversationState.done, True, 3, "confirm",
     ),
     (
         "first explicit no",
         None,
         ParsedReply(intent=Intent.rsvp_no),
-        InvitationStatus.declined, ConversationState.done, False, None, False,
+        InvitationStatus.declined, ConversationState.done, False, None, "confirm",
     ),
     (
         "details after yes complete the rsvp",
         (True, None),
         ParsedReply(intent=Intent.provide_details, party_size=4),
-        InvitationStatus.confirmed, ConversationState.done, True, 4, False,
+        InvitationStatus.confirmed, ConversationState.done, True, 4, "confirm",
     ),
     (
         "yes->no flip clears party_size",
         (True, 4),
         ParsedReply(intent=Intent.rsvp_no),
-        InvitationStatus.declined, ConversationState.done, False, None, False,
+        InvitationStatus.declined, ConversationState.done, False, None, None,
     ),
     (
         "no->yes flip reopens details",
         (False, None),
         ParsedReply(intent=Intent.rsvp_yes),
-        InvitationStatus.confirmed, ConversationState.awaiting_details, True, None, True,
+        InvitationStatus.confirmed, ConversationState.awaiting_details, True, None, "follow_up",
     ),
     (
         "change intent updates the size (latest reply wins)",
         (True, 4),
         ParsedReply(intent=Intent.change, party_size=5),
-        InvitationStatus.confirmed, ConversationState.done, True, 5, False,
+        InvitationStatus.confirmed, ConversationState.done, True, 5, None,
     ),
     (
         "change intent with explicit attending=false declines + clears",
         (True, 4),
         ParsedReply(intent=Intent.change, attending=False),
-        InvitationStatus.declined, ConversationState.done, False, None, False,
+        InvitationStatus.declined, ConversationState.done, False, None, None,
     ),
     (
         "null never overwrites: dietary-only update keeps the size",
         (True, 4),
         ParsedReply(intent=Intent.provide_details, dietary="vegan"),
-        InvitationStatus.confirmed, ConversationState.done, True, 4, False,
+        InvitationStatus.confirmed, ConversationState.done, True, 4, None,
     ),
     (
         "question changes nothing",
         (True, 4),
         ParsedReply(intent=Intent.question),
-        InvitationStatus.confirmed, ConversationState.done, True, 4, False,
+        InvitationStatus.confirmed, ConversationState.done, True, 4, None,
     ),
     (
         "other/unintelligible changes nothing",
         (True, 4),
         ParsedReply(intent=Intent.other),
-        InvitationStatus.confirmed, ConversationState.done, True, 4, False,
+        InvitationStatus.confirmed, ConversationState.done, True, 4, None,
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    "prior, parsed, status, state, attending, party_size, follow_up",
+    "prior, parsed, status, state, attending, party_size, sent",
     [case[1:] for case in TRANSITIONS],
     ids=[case[0] for case in TRANSITIONS],
 )
 def test_transition_table(
-    session, whatsapp, notifications, prior, parsed, status, state, attending, party_size, follow_up
+    session, whatsapp, notifications, prior, parsed, status, state, attending, party_size, sent
 ):
     invitation = _invitation(
         session,
@@ -196,7 +200,20 @@ def test_transition_table(
     else:
         assert invitation.rsvp.attending is attending
         assert invitation.rsvp.party_size == party_size
-    assert bool(whatsapp.sent) is follow_up
+
+    if sent is None:
+        assert whatsapp.sent == []
+    else:
+        (message,) = whatsapp.sent
+        if sent == "follow_up":
+            assert message.payload["body"] == FOLLOW_UP_PROMPTS[Language.en]
+        else:  # "confirm" — confirmation when attending, acknowledgement when declined
+            expected = (
+                CONFIRM_ATTENDING_PROMPTS[Language.en].format(n=party_size)
+                if attending
+                else CONFIRM_DECLINED_PROMPTS[Language.en]
+            )
+            assert message.payload["body"] == expected
     assert len(notifications) == 1  # every reply fires exactly one Host notification
 
 
@@ -222,7 +239,9 @@ def test_button_no(session, whatsapp, notifications):
     assert invitation.status is InvitationStatus.declined
     assert invitation.conversation_state is ConversationState.done
     assert invitation.rsvp.attending is False
-    assert whatsapp.sent == []  # no follow-up after a decline
+    # No follow-up question, but the guest is acknowledged on entering `done`.
+    (ack,) = whatsapp.sent
+    assert ack.payload["body"] == CONFIRM_DECLINED_PROMPTS[Language.en]
 
 
 def test_button_hebrew_yes(session, whatsapp, notifications):

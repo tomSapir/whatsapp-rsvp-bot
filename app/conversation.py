@@ -23,6 +23,12 @@ allowed as free text because the guest's own message just reopened the 24h windo
 logs it to the ``messages`` audit log. The follow-up is sent only when *entering* the
 state, so a repeated Yes doesn't re-ask.
 
+Symmetrically, when a reply lands the conversation in ``done`` — a one-shot yes-with-count,
+a completed head-count, or a decline — the bot sends a short confirmation so the guest
+always hears back rather than the conversation ending in silence. Like the follow-up it
+fires only when *entering* ``done`` (so a later edit while already done doesn't re-confirm)
+and is logged to the audit log.
+
 Dependencies (parser, WhatsApp client, notify) are injected by the caller — the webhook
 wiring happens in M9; tests drive these functions directly with fakes.
 """
@@ -58,6 +64,18 @@ MAX_PARTY_SIZE = 20
 FOLLOW_UP_PROMPTS = {
     Language.en: "Wonderful! How many of you will be coming? Any dietary needs? Anything else we should know?",
     Language.he: "איזה כיף! כמה תהיו? יש העדפות תזונתיות? עוד משהו שכדאי שנדע?",
+}
+
+# Final acknowledgement sent to the guest when the RSVP is complete (entering `done`), so a
+# guest always hears back — even a one-shot yes-with-count or a decline, which otherwise end
+# silently. ``{n}`` is the confirmed head-count (guaranteed non-null when attending is done).
+CONFIRM_ATTENDING_PROMPTS = {
+    Language.en: "You're all set — we've got you down for {n}. Can't wait to celebrate with you! 🎉",
+    Language.he: "הכול מסודר — רשמנו {n}. מתרגשים לחגוג איתכם! 🎉",
+}
+CONFIRM_DECLINED_PROMPTS = {
+    Language.en: "Thanks for letting us know — you'll be missed! 🤍",
+    Language.he: "תודה על העדכון — נתגעגע אליכם! 🤍",
 }
 
 # Template quick-reply buttons, per language (the templates are bilingual — M9).
@@ -213,11 +231,14 @@ def _apply_reply(
 
     rsvp.responded_at = _utcnow()
 
+    new_state = invitation.conversation_state
     if (
-        invitation.conversation_state is ConversationState.awaiting_details
+        new_state is ConversationState.awaiting_details
         and previous_state is not ConversationState.awaiting_details
     ):
         _send_follow_up(session, invitation, whatsapp)
+    elif new_state is ConversationState.done and previous_state is not ConversationState.done:
+        _send_confirmation(session, invitation, rsvp, whatsapp)
 
     session.commit()
     notify(_summary(invitation, rsvp))
@@ -241,6 +262,31 @@ def _send_follow_up(session: Session, invitation: Invitation, whatsapp: WhatsApp
     Free text is allowed here: the guest's own inbound just reopened the 24h window.
     """
     body = FOLLOW_UP_PROMPTS[invitation.language]
+    result = whatsapp.send_text(invitation.phone, body)
+    session.add(
+        Message(
+            invitation_id=invitation.id,
+            direction=MessageDirection.outbound,
+            type=MessageType.text,
+            body=body,
+            wa_message_id=result.wa_message_id,
+        )
+    )
+
+
+def _send_confirmation(
+    session: Session, invitation: Invitation, rsvp: Rsvp, whatsapp: WhatsAppClient
+) -> None:
+    """Acknowledge a settled RSVP to the guest and log the outbound message to the audit log.
+
+    Sent on *entering* ``done`` (mirroring the follow-up): a one-shot yes-with-count or a
+    decline would otherwise leave the guest with no reply. Free text is allowed here — the
+    guest's own inbound just reopened the 24h window.
+    """
+    if rsvp.attending:
+        body = CONFIRM_ATTENDING_PROMPTS[invitation.language].format(n=rsvp.party_size)
+    else:
+        body = CONFIRM_DECLINED_PROMPTS[invitation.language]
     result = whatsapp.send_text(invitation.phone, body)
     session.add(
         Message(

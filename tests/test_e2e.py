@@ -18,7 +18,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-from app.conversation import FOLLOW_UP_PROMPTS
+from app.conversation import CONFIRM_DECLINED_PROMPTS, FOLLOW_UP_PROMPTS
 from app.db import create_db_engine, init_db
 from app.models import (
     ConversationState,
@@ -173,7 +173,9 @@ def test_button_no_end_to_end(harness):
     omer = _guest(session_factory, OMER_PHONE)
     assert omer.status is InvitationStatus.declined
     assert omer.conversation_state is ConversationState.done
-    assert whatsapp.sent == []  # no follow-up after a decline
+    # No follow-up question, but the guest is acknowledged on entering `done`.
+    (ack,) = whatsapp.sent
+    assert ack.payload["body"] == CONFIRM_DECLINED_PROMPTS[Language.en]
     assert any("declined" in n for n in _feed(session_factory))
 
 
