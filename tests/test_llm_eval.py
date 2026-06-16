@@ -33,7 +33,9 @@ PHRASES = [
     ("yes! we'll be there", Intent.rsvp_yes, True, None),
     ("Yes, 3 of us, one vegetarian", Intent.rsvp_yes, True, 3),
     ("sorry, we can't make it", Intent.rsvp_no, False, None),
-    ("we'll be 4 people", Intent.provide_details, None, 4),
+    # "we'll be 4 people" reads as an affirmative-with-count ("we'll be there, 4 of us");
+    # the Hebrew "נהיה 6…" below covers the pure provide_details (no yes/no) path.
+    ("we'll be 4 people", Intent.rsvp_yes, True, 4),
     ("actually make that 5, not 4", Intent.change, None, 5),
     ("is there parking at the venue?", Intent.question, None, None),
     ("כן, נשמח לבוא! נהיה 2", Intent.rsvp_yes, True, 2),

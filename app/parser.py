@@ -66,7 +66,9 @@ _SYSTEM_PROMPT = (
     "Rules: pick the single best intent; set a field ONLY when the guest stated it "
     "explicitly — otherwise leave it null; never guess. Set attending only on an "
     "unambiguous yes/no statement about coming. party_size is the total number of people "
-    "coming, including the guest. confidence is your own 0-1 estimate of the extraction."
+    "coming, including the guest; if the guest does not state a number, party_size MUST be "
+    "null — never assume 1 or infer a count from a bare yes. confidence is your own 0-1 "
+    "estimate of the extraction."
 )
 
 _TOOL_NAME = "record_rsvp_reply"
@@ -168,6 +170,9 @@ class OpenAIReplyParser(ReplyParser):
             tools=[_TOOL],
             # Force the tool call: the model may not answer in prose.
             tool_choice={"type": "function", "function": {"name": _TOOL_NAME}},
+            # Extraction, not generation: pin to 0 so the same reply parses the same way
+            # and the model doesn't "fill in" fields (e.g. a party_size) the guest never gave.
+            temperature=0,
         )
         message = response.choices[0].message
         if not message.tool_calls:
