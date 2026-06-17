@@ -10,8 +10,13 @@ checklist see [STEPS.md](./STEPS.md).
 
 ## Now / next
 
+- [ ] 📋 Read [CODE_REVIEW.md](./CODE_REVIEW.md) (full deep review, 2026-06-17) and work
+      through its findings in a new session. Top item: Host-notify-on-failure wrapper
+      (#1/#2) closes the silent-drop gap; then template `components` (#3) — same root as
+      the `דנה` bug below.
 - [ ] 🐛 Bug: when sending invites/reminders to non-responders, the name "דנה"
       appears (wrong/placeholder name leaking into the message). Fix this.
+      *(CODE_REVIEW.md #3 — `send_template` never passes `components`.)*
 - [ ] 🧪 Test with a fake image (event header image path in the invite template).
 - [ ] 🌐 Manual smoke test: run uvicorn + streamlit + tunnel, register the `/webhook`
       URL, send myself an invite, reply, and watch it flow to the dashboard.
