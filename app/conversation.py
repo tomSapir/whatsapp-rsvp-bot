@@ -39,10 +39,12 @@ import logging
 from collections.abc import Callable
 from datetime import datetime, timezone
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
     ConversationState,
+    Event,
     Invitation,
     InvitationStatus,
     Language,
@@ -76,6 +78,14 @@ CONFIRM_ATTENDING_PROMPTS = {
 CONFIRM_DECLINED_PROMPTS = {
     Language.en: "Thanks for letting us know — you'll be missed! 🤍",
     Language.he: "תודה על העדכון — נתגעגע אליכם! 🤍",
+}
+
+# Appended to the *attending* confirmation when the event has a location, so a guest who's
+# "all set" gets directions in the same breath. ``{label}`` is the venue/address (blank if
+# only coordinates are set); ``{waze}``/``{gmaps}`` are the deep links from the Event model.
+LOCATION_PROMPTS = {
+    Language.en: "\n\n📍 How to get there{label}:\nWaze: {waze}\nGoogle Maps: {gmaps}",
+    Language.he: "\n\n📍 איך מגיעים{label}:\nWaze: {waze}\nGoogle Maps: {gmaps}",
 }
 
 # Template quick-reply buttons, per language (the templates are bilingual — M9).
@@ -281,10 +291,12 @@ def _send_confirmation(
 
     Sent on *entering* ``done`` (mirroring the follow-up): a one-shot yes-with-count or a
     decline would otherwise leave the guest with no reply. Free text is allowed here — the
-    guest's own inbound just reopened the 24h window.
+    guest's own inbound just reopened the 24h window. Attending guests also get the venue's
+    Waze/Google Maps links appended, when the event has a location.
     """
     if rsvp.attending:
         body = CONFIRM_ATTENDING_PROMPTS[invitation.language].format(n=rsvp.party_size)
+        body += _location_suffix(session, invitation.language)
     else:
         body = CONFIRM_DECLINED_PROMPTS[invitation.language]
     result = whatsapp.send_text(invitation.phone, body)
@@ -296,6 +308,21 @@ def _send_confirmation(
             body=body,
             wa_message_id=result.wa_message_id,
         )
+    )
+
+
+def _location_suffix(session: Session, language: Language) -> str:
+    """The Waze/Google Maps block for the confirmation, or ``""`` if no location is set.
+
+    Reads the single Event row; an event without a venue or coordinates yields no links, so
+    the confirmation stays exactly as before.
+    """
+    event = session.execute(select(Event)).scalar_one_or_none()
+    if event is None or not event.has_location:
+        return ""
+    label = f" — {event.location_name}" if event.location_name else ""
+    return LOCATION_PROMPTS[language].format(
+        label=label, waze=event.waze_url, gmaps=event.google_maps_url
     )
 
 

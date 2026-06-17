@@ -131,6 +131,42 @@ def test_event_is_single_row(session):
         session.commit()
 
 
+def test_event_location_links_prefer_coordinates(session):
+    event = _event(location_name="Beit Yaar, Tel Aviv", location_lat=32.0853, location_lng=34.7818)
+    session.add(event)
+    session.commit()
+
+    assert event.has_location and event.has_coordinates
+    # Coordinates win over the address: Waze routes (navigate=yes), Maps pins the exact point.
+    assert event.waze_url == "https://waze.com/ul?ll=32.0853,34.7818&navigate=yes"
+    assert event.google_maps_url == (
+        "https://www.google.com/maps/search/?api=1&query=32.0853%2C34.7818"
+    )
+
+
+def test_event_location_links_fall_back_to_address(session):
+    event = _event(location_name="Beit Yaar, Tel Aviv")  # no coordinates
+    session.add(event)
+    session.commit()
+
+    assert event.has_location and not event.has_coordinates
+    # Address-only: both links url-encode the venue text as a query.
+    assert event.waze_url == "https://waze.com/ul?q=Beit%20Yaar%2C%20Tel%20Aviv"
+    assert event.google_maps_url == (
+        "https://www.google.com/maps/search/?api=1&query=Beit%20Yaar%2C%20Tel%20Aviv"
+    )
+
+
+def test_event_without_location_has_no_links(session):
+    event = _event()
+    session.add(event)
+    session.commit()
+
+    assert not event.has_location
+    assert event.waze_url is None
+    assert event.google_maps_url is None
+
+
 def test_foreign_key_enforced(session):
     # PRAGMA foreign_keys=ON (set in create_db_engine) must reject an orphan FK.
     session.add(Rsvp(invitation_id=999, attending=True, party_size=1))

@@ -462,6 +462,30 @@ def _render_event_setup(session_factory, current: Event | None) -> None:
         event_date = st.date_input(
             "Event date", value=current.event_date if current else date.today()
         )
+
+        st.markdown("**Location (optional)** — guests get Waze + Google Maps links on confirming")
+        location_name = st.text_input(
+            "Venue / address",
+            value=current.location_name if current and current.location_name else "",
+            placeholder="e.g. Beit Yaar, Tel Aviv",
+        )
+        loc1, loc2 = st.columns(2)
+        location_lat = loc1.number_input(
+            "Latitude (optional)",
+            value=current.location_lat if current and current.location_lat is not None else None,
+            min_value=-90.0,
+            max_value=90.0,
+            format="%.6f",
+            help="Leave blank to link by address. Tip: right-click a spot in Google Maps to copy lat, lng.",
+        )
+        location_lng = loc2.number_input(
+            "Longitude (optional)",
+            value=current.location_lng if current and current.location_lng is not None else None,
+            min_value=-180.0,
+            max_value=180.0,
+            format="%.6f",
+        )
+
         image = st.file_uploader("Invite image (optional)", type=["png", "jpg", "jpeg"])
         if st.form_submit_button("💾 Save event", type="primary"):
             image_path = current.image_path if current else None
@@ -482,12 +506,28 @@ def _render_event_setup(session_factory, current: Event | None) -> None:
                     partner2_last_he=p2_last_he,
                     event_date=event_date,
                     image_path=image_path,
+                    location_name=location_name.strip() or None,
+                    location_lat=location_lat,
+                    location_lng=location_lng,
                 )
             st.success("Event saved.")
             st.rerun()
 
     if current and current.image_path and Path(current.image_path).exists():
         st.image(current.image_path, caption="Invite header image", width=300)
+
+    if current and current.has_location:
+        st.markdown("**Location preview**")
+        if current.has_coordinates:
+            st.map(
+                pd.DataFrame({"lat": [current.location_lat], "lon": [current.location_lng]}),
+                zoom=14,
+            )
+        st.caption(
+            f"🧭 [Open in Waze]({current.waze_url}) · "
+            f"🗺️ [Open in Google Maps]({current.google_maps_url})"
+            + ("" if current.has_coordinates else "  — linking by address (no map pin without coordinates)")
+        )
 
 
 # --- Sidebar: event summary + global actions ----------------------------------------------

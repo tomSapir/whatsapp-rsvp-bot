@@ -83,6 +83,30 @@ def test_upsert_event_creates_then_updates_single_row(session):
     assert event.image_path == "data/uploads/pic.png"
 
 
+def test_upsert_event_persists_and_clears_location(session):
+    upsert_event(
+        session,
+        **COUPLE_NAMES,
+        event_date=date(2026, 7, 1),
+        location_name="Beit Yaar, Tel Aviv",
+        location_lat=32.0853,
+        location_lng=34.7818,
+    )
+    event = session.query(Event).one()
+    assert (event.location_name, event.location_lat, event.location_lng) == (
+        "Beit Yaar, Tel Aviv",
+        32.0853,
+        34.7818,
+    )
+
+    # Re-saving without a location clears it (the form passes None when the fields are blank).
+    upsert_event(session, **COUPLE_NAMES, event_date=date(2026, 7, 1))
+    event = session.query(Event).one()
+    assert event.location_name is None
+    assert event.location_lat is None and event.location_lng is None
+    assert not event.has_location
+
+
 # --- Invitation CRUD ----------------------------------------------------------------------------
 
 

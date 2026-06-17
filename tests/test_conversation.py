@@ -9,6 +9,8 @@ validation failures and ambiguous messages touch nothing, every reply notifies t
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -22,6 +24,7 @@ from app.conversation import (
 from app.db import create_db_engine, init_db
 from app.models import (
     ConversationState,
+    Event,
     Invitation,
     InvitationStatus,
     Language,
@@ -350,6 +353,62 @@ def test_party_size_on_decline_not_saved(session, whatsapp, notifications):
     assert invitation.rsvp.attending is False
     assert invitation.rsvp.party_size is None  # the invariant: declines carry no head-count
     assert invitation.rsvp.note == "sorry, we're abroad"  # but the note is kept
+
+
+def _seed_event(session, **location):
+    session.add(
+        Event(
+            partner1_first_en="Ada",
+            partner1_last_en="Cohen",
+            partner2_first_en="Bo",
+            partner2_last_en="Levi",
+            partner1_first_he="עדה",
+            partner1_last_he="כהן",
+            partner2_first_he="בו",
+            partner2_last_he="לוי",
+            event_date=date(2026, 7, 1),
+            **location,
+        )
+    )
+    session.commit()
+
+
+def test_attending_confirmation_includes_location_links(session, whatsapp, notifications):
+    _seed_event(session, location_name="Beit Yaar", location_lat=32.0853, location_lng=34.7818)
+    invitation = _invitation(session)  # awaiting_yesno, no RSVP yet
+
+    _text(  # one-shot yes-with-count → enters `done` attending → confirmation sent
+        session, invitation, ParsedReply(intent=Intent.rsvp_yes, party_size=2), whatsapp, notifications
+    )
+
+    (sent,) = whatsapp.sent
+    body = sent.payload["body"]
+    assert CONFIRM_ATTENDING_PROMPTS[Language.en].format(n=2) in body
+    assert "Beit Yaar" in body
+    assert "https://waze.com/ul?ll=32.0853,34.7818&navigate=yes" in body
+    assert "https://www.google.com/maps/search/?api=1&query=32.0853%2C34.7818" in body
+
+
+def test_decline_confirmation_has_no_location_links(session, whatsapp, notifications):
+    _seed_event(session, location_name="Beit Yaar", location_lat=32.0853, location_lng=34.7818)
+    invitation = _invitation(session)
+
+    _text(session, invitation, ParsedReply(intent=Intent.rsvp_no), whatsapp, notifications)
+
+    (sent,) = whatsapp.sent
+    assert sent.payload["body"] == CONFIRM_DECLINED_PROMPTS[Language.en]  # no directions on a no
+
+
+def test_confirmation_without_event_location_is_unchanged(session, whatsapp, notifications):
+    _seed_event(session)  # event exists but no location set
+    invitation = _invitation(session)
+
+    _text(
+        session, invitation, ParsedReply(intent=Intent.rsvp_yes, party_size=2), whatsapp, notifications
+    )
+
+    (sent,) = whatsapp.sent
+    assert sent.payload["body"] == CONFIRM_ATTENDING_PROMPTS[Language.en].format(n=2)
 
 
 def test_question_notification_carries_the_text(session, whatsapp, notifications):

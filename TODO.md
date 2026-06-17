@@ -35,8 +35,10 @@ checklist see [STEPS.md](./STEPS.md).
 
 ## Ideas / someday
 
-- [ ] 🎨 Add **event location**: capture it in Event setup (maybe an interactive UI
-      map picker), and give guests a Waze/maps link to navigate to the event.
+- [x] 🎨 Add **event location**: capture it in Event setup (venue/address + optional
+      lat/lng with a map preview), and give guests Waze + Google Maps links on
+      confirmation. *(coords-or-address links on the Event model; sent in the attending
+      confirmation. Skipped the interactive click-picker to stay dependency-free.)*
 
 ---
 
