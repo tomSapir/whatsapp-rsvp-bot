@@ -12,11 +12,15 @@ checklist see [STEPS.md](./STEPS.md).
 
 - [ ] 📋 Read [CODE_REVIEW.md](./CODE_REVIEW.md) (full deep review, 2026-06-17) and work
       through its findings in a new session. Top item: Host-notify-on-failure wrapper
-      (#1/#2) closes the silent-drop gap; then template `components` (#3) — same root as
-      the `דנה` bug below.
-- [ ] 🐛 Bug: when sending invites/reminders to non-responders, the name "דנה"
-      appears (wrong/placeholder name leaking into the message). Fix this.
-      *(CODE_REVIEW.md #3 — `send_template` never passes `components`.)*
+      (#1/#2) closes the silent-drop gap. *(Note: #3 "template `components`" was a
+      misdiagnosis — see the `דנה` item below. The code is correct; the templates are
+      deliberately parameter-less.)*
+- [⏳] 🐛 **`דנה` bug — WAITING ON META APPROVAL.** Root cause (2026-06-18): the Hebrew
+      `rsvp_details_nudge` template body hardcodes "תום ו**דנה**" instead of "תום ו**עמית**"
+      — a one-word typo baked into the approved template text, *not* a code bug (the live
+      templates have no `{{…}}` variables, so `components=None` is correct). Fix: edited the
+      Hebrew nudge body in WhatsApp Manager → resubmitted → **waiting for re-approval**.
+      Verify status flips back to APPROVED, then send myself a Hebrew nudge to confirm.
 - [ ] 🧪 Test with a fake image (event header image path in the invite template).
 - [ ] 🌐 Manual smoke test: run uvicorn + streamlit + tunnel, register the `/webhook`
       URL, send myself an invite, reply, and watch it flow to the dashboard.
@@ -29,6 +33,12 @@ checklist see [STEPS.md](./STEPS.md).
 
 ## Phase 3 — Optional / later
 
+- [ ] 🌐 Upload the host app to **Streamlit Community Cloud** (share.streamlit.io) — push
+      to GitHub, point it at `host/dashboard.py`, set secrets (DB path, WhatsApp token).
+      *Caveat:* Streamlit Cloud only runs the dashboard — it won't host the FastAPI
+      `/webhook` or the APScheduler reminder job, and it has no built-in auth (CODE_REVIEW
+      note: gate it before exposing publicly). The webhook + reminders still need the
+      always-on tier below.
 - [ ] 🌐 Deploy to a free always-on cloud tier so reminders fire without my laptop on.
 - [ ] 🧩 Richer analytics on the dashboard.
 - [ ] 🧩 Support multiple events / reusability.

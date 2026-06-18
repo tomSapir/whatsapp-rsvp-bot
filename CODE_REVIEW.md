@@ -63,6 +63,13 @@ on the approved template:
 
 Decide the template contract and thread the guest's `name` through as a body component.
 
+> **Correction (2026-06-18):** investigated against the live templates — this was a
+> misdiagnosis. The approved templates have **no `{{…}}` variables** (RUNBOOK.md:70), so
+> `components=None` is *correct*. The actual `דנה` bug was a content typo: the Hebrew
+> `rsvp_details_nudge` body hardcoded "תום ודנה" instead of "תום ועמית". Fixed at the
+> template level, no code change. Guest-name personalization (the `{{1}}` + components idea
+> above) remains a valid *optional* enhancement — deferred. See TODO.md.
+
 ### 🟡 Low
 
 **4. Send-before-commit ordering in `_apply_reply`.** `_send_follow_up` /
