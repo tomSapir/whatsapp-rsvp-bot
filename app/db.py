@@ -98,18 +98,51 @@ def get_sessionmaker() -> sessionmaker[Session]:
     )
 
 
+# Columns added to a table *after* its first release. ``create_all`` never alters an existing
+# table, so a database created before a column existed would be missing it; :func:`_migrate`
+# back-fills these with a cheap, nullable ``ALTER TABLE ADD COLUMN``. Each entry is
+# ``"table": {"column": "SQLITE TYPE"}``; only columns absent from the live table are added.
+_ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "events": {
+        "location_name": "VARCHAR",
+        "location_lat": "FLOAT",
+        "location_lng": "FLOAT",
+    },
+}
+
+
+def _migrate(engine: Engine) -> None:
+    """Add any post-release columns missing from existing tables (idempotent).
+
+    SQLite's ``ALTER TABLE ... ADD COLUMN`` only appends nullable columns — it never rewrites
+    rows — so this is safe and fast to run on every startup. A freshly created database
+    already has the columns (``create_all`` built the table from the current model), so the
+    ``PRAGMA table_info`` guard makes every addition a no-op there.
+    """
+    with engine.begin() as conn:
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+            if not existing:  # table doesn't exist yet — create_all will build it complete
+                continue
+            for name, sqltype in columns.items():
+                if name not in existing:
+                    conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {sqltype}")
+
+
 def init_db(engine: Engine | None = None) -> Engine:
     """Create every table on ``engine`` (defaults to the process-wide engine).
 
     Importing ``app.models`` here — lazily, to avoid a circular import, since models import
-    :data:`Base` from this module — registers all four tables on ``Base.metadata`` before
+    :data:`Base` from this module — registers all tables on ``Base.metadata`` before
     ``create_all`` runs. ``create_all`` issues ``CREATE TABLE IF NOT EXISTS``, so calling
-    this at app startup or from a test fixture is safe to repeat.
+    this at app startup or from a test fixture is safe to repeat; :func:`_migrate` then
+    back-fills any columns added to a table after the database was first created.
     """
     import app.models  # noqa: F401  -- side effect: registers tables on Base.metadata
 
     engine = engine or get_engine()
     Base.metadata.create_all(engine)
+    _migrate(engine)
     return engine
 
 

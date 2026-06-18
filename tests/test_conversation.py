@@ -9,6 +9,8 @@ validation failures and ambiguous messages touch nothing, every reply notifies t
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -22,6 +24,7 @@ from app.conversation import (
 from app.db import create_db_engine, init_db
 from app.models import (
     ConversationState,
+    Event,
     Invitation,
     InvitationStatus,
     Language,
@@ -29,7 +32,7 @@ from app.models import (
     MessageDirection,
     Rsvp,
 )
-from app.parser import Intent, ParsedReply, StubReplyParser
+from app.parser import Intent, ParsedReply, ParserUnavailable, ReplyParser, StubReplyParser
 from app.whatsapp import FakeWhatsAppClient
 
 PHONE = "+972502345678"
@@ -338,6 +341,50 @@ def test_parse_failure_touches_nothing_and_notifies(session, whatsapp, notificat
     assert len(notifications) == 1 and "Couldn't understand" in notifications[0]
 
 
+class _UnavailableParser(ReplyParser):
+    """A parser that always fails to *reach* the model (OpenAI down / timeout)."""
+
+    def parse(self, text: str) -> ParsedReply:
+        raise ParserUnavailable("OpenAI request failed: boom")
+
+
+def test_parser_unavailable_touches_nothing_and_notifies(session, whatsapp, notifications):
+    """A transport/API failure must not silently drop the reply: nothing changes and the
+    Host is told to handle it manually — with a message distinct from 'couldn't understand'
+    so the Host knows the reply was fine and just needs re-recording."""
+    invitation = _invitation(session, attending=True, party_size=4)
+    handle_text_reply(
+        session,
+        invitation,
+        "כן, נגיע 3",
+        parser=_UnavailableParser(),
+        whatsapp=whatsapp,
+        notify=notifications.append,
+    )
+    assert invitation.rsvp.party_size == 4  # untouched
+    assert whatsapp.sent == []  # no follow-up/confirmation went out
+    assert len(notifications) == 1 and "unreachable" in notifications[0]
+
+
+def test_state_committed_before_ack_send_survives_a_send_failure(session, notifications):
+    """Commit-then-send (#4): if the guest ack fails to send, the RSVP is still durably
+    recorded. The old send-then-commit order rolled the change back on a send failure, and
+    the inbound dedup key meant a redelivery couldn't repair it."""
+    invitation = _invitation(session)  # invited / awaiting_yesno, no RSVP yet
+
+    class _SendFails(FakeWhatsAppClient):
+        def send_text(self, to: str, body: str):
+            raise RuntimeError("network down")
+
+    with pytest.raises(RuntimeError):
+        handle_button_reply(
+            session, invitation, "כן", whatsapp=_SendFails(), notify=notifications.append
+        )
+    session.rollback()  # discard anything uncommitted — a committed Yes must survive this
+    assert invitation.status is InvitationStatus.confirmed
+    assert invitation.rsvp is not None and invitation.rsvp.attending is True
+
+
 def test_party_size_on_decline_not_saved(session, whatsapp, notifications):
     invitation = _invitation(session)
     _text(
@@ -350,6 +397,62 @@ def test_party_size_on_decline_not_saved(session, whatsapp, notifications):
     assert invitation.rsvp.attending is False
     assert invitation.rsvp.party_size is None  # the invariant: declines carry no head-count
     assert invitation.rsvp.note == "sorry, we're abroad"  # but the note is kept
+
+
+def _seed_event(session, **location):
+    session.add(
+        Event(
+            partner1_first_en="Ada",
+            partner1_last_en="Cohen",
+            partner2_first_en="Bo",
+            partner2_last_en="Levi",
+            partner1_first_he="עדה",
+            partner1_last_he="כהן",
+            partner2_first_he="בו",
+            partner2_last_he="לוי",
+            event_date=date(2026, 7, 1),
+            **location,
+        )
+    )
+    session.commit()
+
+
+def test_attending_confirmation_includes_location_links(session, whatsapp, notifications):
+    _seed_event(session, location_name="Beit Yaar", location_lat=32.0853, location_lng=34.7818)
+    invitation = _invitation(session)  # awaiting_yesno, no RSVP yet
+
+    _text(  # one-shot yes-with-count → enters `done` attending → confirmation sent
+        session, invitation, ParsedReply(intent=Intent.rsvp_yes, party_size=2), whatsapp, notifications
+    )
+
+    (sent,) = whatsapp.sent
+    body = sent.payload["body"]
+    assert CONFIRM_ATTENDING_PROMPTS[Language.en].format(n=2) in body
+    assert "Beit Yaar" in body
+    assert "https://waze.com/ul?ll=32.0853,34.7818&navigate=yes" in body
+    assert "https://www.google.com/maps/search/?api=1&query=32.0853%2C34.7818" in body
+
+
+def test_decline_confirmation_has_no_location_links(session, whatsapp, notifications):
+    _seed_event(session, location_name="Beit Yaar", location_lat=32.0853, location_lng=34.7818)
+    invitation = _invitation(session)
+
+    _text(session, invitation, ParsedReply(intent=Intent.rsvp_no), whatsapp, notifications)
+
+    (sent,) = whatsapp.sent
+    assert sent.payload["body"] == CONFIRM_DECLINED_PROMPTS[Language.en]  # no directions on a no
+
+
+def test_confirmation_without_event_location_is_unchanged(session, whatsapp, notifications):
+    _seed_event(session)  # event exists but no location set
+    invitation = _invitation(session)
+
+    _text(
+        session, invitation, ParsedReply(intent=Intent.rsvp_yes, party_size=2), whatsapp, notifications
+    )
+
+    (sent,) = whatsapp.sent
+    assert sent.payload["body"] == CONFIRM_ATTENDING_PROMPTS[Language.en].format(n=2)
 
 
 def test_question_notification_carries_the_text(session, whatsapp, notifications):

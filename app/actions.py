@@ -102,8 +102,18 @@ def upsert_event(
     partner2_last_he: str,
     event_date: date_type,
     image_path: str | None = None,
+    location_name: str | None = None,
+    location_lat: float | None = None,
+    location_lng: float | None = None,
 ) -> Event:
     """Create or update the single Event row (the ``CHECK (id = 1)`` guard stays happy)."""
+    scalars = {
+        "event_date": event_date,
+        "image_path": image_path,
+        "location_name": location_name,
+        "location_lat": location_lat,
+        "location_lng": location_lng,
+    }
     names = {
         "partner1_first_en": partner1_first_en,
         "partner1_last_en": partner1_last_en,
@@ -116,13 +126,11 @@ def upsert_event(
     }
     event = session.execute(select(Event)).scalar_one_or_none()
     if event is None:
-        event = Event(**names, event_date=event_date, image_path=image_path)
+        event = Event(**names, **scalars)
         session.add(event)
     else:
-        for field, value in names.items():
+        for field, value in (*names.items(), *scalars.items()):
             setattr(event, field, value)
-        event.event_date = event_date
-        event.image_path = image_path
     session.commit()
     return event
 

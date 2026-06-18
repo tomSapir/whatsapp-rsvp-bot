@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import enum
 from datetime import date, datetime
+from urllib.parse import quote
 
 from sqlalchemy import (
     Boolean,
@@ -28,6 +29,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -101,10 +103,15 @@ def _enum_type(enum_cls: type[enum.Enum]) -> Enum:
 
 
 class Event(Base):
-    """The single event row — couple names, date, optional header image (PLAN §5).
+    """The single event row — couple names, date, optional header image + location (PLAN §5).
 
     ``CHECK (id = 1)`` enforces "exactly one Event per deployment" at the database level:
     the autoincrement PK hands the second insert ``id = 2``, which the check rejects.
+
+    **Location** is all-optional: a free-text ``location_name`` (venue/address) and an optional
+    precise ``location_lat``/``location_lng`` pair. The map deep-links prefer the coordinates
+    when present (most accurate for navigation) and fall back to the address text otherwise, so
+    the Host can give *either* and guests still get a working Waze/Google Maps link.
     """
 
     __tablename__ = "events"
@@ -121,6 +128,9 @@ class Event(Base):
     partner2_last_he: Mapped[str] = mapped_column(String, nullable=False)
     event_date: Mapped[date] = mapped_column(Date, nullable=False)
     image_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    location_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    location_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    location_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     @property
     def couple_name_en(self) -> str:
@@ -137,6 +147,44 @@ class Event(Base):
             f"{self.partner1_first_he} {self.partner1_last_he}"
             f" ו{self.partner2_first_he} {self.partner2_last_he}"
         )
+
+    @property
+    def has_coordinates(self) -> bool:
+        """True when a precise lat/lng pair is set (both, not one)."""
+        return self.location_lat is not None and self.location_lng is not None
+
+    @property
+    def has_location(self) -> bool:
+        """True when there is *anything* to navigate to — coordinates or an address."""
+        return self.has_coordinates or bool(self.location_name)
+
+    @property
+    def waze_url(self) -> str | None:
+        """A Waze deep link, or ``None`` if no location is set.
+
+        Prefers ``ll=`` with ``navigate=yes`` (starts routing to exact coordinates); falls
+        back to a ``q=`` address search when only the venue text is known.
+        """
+        if self.has_coordinates:
+            return f"https://waze.com/ul?ll={self.location_lat},{self.location_lng}&navigate=yes"
+        if self.location_name:
+            return f"https://waze.com/ul?q={quote(self.location_name)}"
+        return None
+
+    @property
+    def google_maps_url(self) -> str | None:
+        """A Google Maps search link, or ``None`` if no location is set.
+
+        Uses the coordinates as the query when available (so the pin lands exactly), else the
+        address text — the Maps URL API resolves both the same way.
+        """
+        if self.has_coordinates:
+            query = f"{self.location_lat},{self.location_lng}"
+        elif self.location_name:
+            query = self.location_name
+        else:
+            return None
+        return f"https://www.google.com/maps/search/?api=1&query={quote(query)}"
 
 
 class Invitation(Base):

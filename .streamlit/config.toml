@@ -1,0 +1,14 @@
+# Streamlit theme — "modern minimal" host UI (M11 dashboard redesign).
+#
+# Clean white canvas, a muted sage accent, slate text. These keys drive the colour of
+# *every* widget at once (buttons, links, sliders, focus rings, the active tab), so the
+# whole app restyles from here; host/dashboard.py only adds typography + layout polish on
+# top via a small CSS block.
+
+[theme]
+base = "light"
+primaryColor = "#4F7A66"             # sage — buttons, links, active tab, focus rings
+backgroundColor = "#FFFFFF"          # main canvas
+secondaryBackgroundColor = "#F4F6F4" # sidebar, cards, metric tiles, table header
+textColor = "#1F2A24"                # slate-green near-black
+font = "sans-serif"
