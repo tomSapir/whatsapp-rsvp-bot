@@ -40,6 +40,17 @@ class ParseError(ValueError):
     """The model's output could not be validated into a :class:`ParsedReply`."""
 
 
+class ParserUnavailable(ParseError):
+    """The model could not be *reached* (rate limit, timeout, API or network failure).
+
+    Distinct from a plain :class:`ParseError` (the guest's reply arrived but didn't
+    validate): here the reply itself may be perfectly fine — we just couldn't process it
+    right now. It subclasses :class:`ParseError` so existing ``except ParseError`` handlers
+    still catch it, while callers that care (the conversation layer) can branch on it to
+    tell the Host "couldn't process — handle manually" rather than "couldn't understand".
+    """
+
+
 @dataclass(frozen=True)
 class ParsedReply:
     """Structured extraction of one guest message; ``None`` = "the guest didn't say"."""
@@ -145,6 +156,11 @@ def parsed_reply_from_args(args: dict[str, Any]) -> ParsedReply:
     )
 
 
+# Extraction is a quick call; cap it so a stalled request can't hang the inbound
+# background task. The SDK default is 600s — far too long when Meta won't redeliver.
+_OPENAI_TIMEOUT = 20.0
+
+
 class OpenAIReplyParser(ReplyParser):
     """Real parser — one forced tool call to OpenAI per guest message.
 
@@ -152,28 +168,40 @@ class OpenAIReplyParser(ReplyParser):
     pass a canned fake; by default the official SDK client is built from the api key.
     """
 
-    def __init__(self, api_key: str | None = None, model: str = "gpt-4o-mini", *, client: Any = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "gpt-4o-mini",
+        *,
+        client: Any = None,
+        timeout: float = _OPENAI_TIMEOUT,
+    ) -> None:
         if client is None:
             from openai import OpenAI  # lazy: only the real path needs the SDK client
 
-            client = OpenAI(api_key=api_key)
+            client = OpenAI(api_key=api_key, timeout=timeout)
         self._client = client
         self._model = model
 
     def parse(self, text: str) -> ParsedReply:
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": text},
-            ],
-            tools=[_TOOL],
-            # Force the tool call: the model may not answer in prose.
-            tool_choice={"type": "function", "function": {"name": _TOOL_NAME}},
-            # Extraction, not generation: pin to 0 so the same reply parses the same way
-            # and the model doesn't "fill in" fields (e.g. a party_size) the guest never gave.
-            temperature=0,
-        )
+        from openai import OpenAIError  # lazy, matching the client import above
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=[
+                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "user", "content": text},
+                ],
+                tools=[_TOOL],
+                # Force the tool call: the model may not answer in prose.
+                tool_choice={"type": "function", "function": {"name": _TOOL_NAME}},
+                # Extraction, not generation: pin to 0 so the same reply parses the same way
+                # and the model doesn't "fill in" fields (e.g. a party_size) the guest never gave.
+                temperature=0,
+            )
+        except OpenAIError as exc:  # rate limit, timeout, API, or connection failure
+            raise ParserUnavailable(f"OpenAI request failed: {exc}") from exc
         message = response.choices[0].message
         if not message.tool_calls:
             raise ParseError("model returned no tool call")

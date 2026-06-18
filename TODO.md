@@ -10,10 +10,11 @@ checklist see [STEPS.md](./STEPS.md).
 
 ## Now / next
 
-- [ ] 📋 Read [CODE_REVIEW.md](./CODE_REVIEW.md) (full deep review, 2026-06-17) and work
-      through its findings in a new session. Top item: Host-notify-on-failure wrapper
-      (#1/#2) closes the silent-drop gap. *(Note: #3 "template `components`" was a
-      misdiagnosis — see the `דנה` item below. The code is correct; the templates are
+- [ ] 📋 Work through [CODE_REVIEW.md](./CODE_REVIEW.md) (full deep review, 2026-06-17).
+      Done so far (branch `m13-inbound-resilience`): ✅ **#1 + #2** — host-notify-on-failure
+      wrapper + OpenAI timeout/`ParserUnavailable` close the silent-drop gap. Next: **#5**
+      (CSV formula injection), then the minor #4/#6. *(#3 "template `components`" was a
+      misdiagnosis — see the `דנה` item below; the code is correct, templates are
       deliberately parameter-less.)*
 - [⏳] 🐛 **`דנה` bug — WAITING ON META APPROVAL.** Root cause (2026-06-18): the Hebrew
       `rsvp_details_nudge` template body hardcodes "תום ו**דנה**" instead of "תום ו**עמית**"

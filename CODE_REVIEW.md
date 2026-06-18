@@ -45,12 +45,23 @@ already does the right thing (notify the Host to handle manually) — broaden it
 transport errors too, and set an explicit timeout on the OpenAI client
 (`parser.py:155-159`).
 
+> **✅ Resolved (2026-06-18, `m13-inbound-resilience`):** added `ParserUnavailable(ParseError)`;
+> `OpenAIReplyParser` now wraps `create()` (`OpenAIError → ParserUnavailable`) and sets a 20 s
+> client timeout. `handle_text_reply` branches `ParserUnavailable` (Host: "couldn't process —
+> handle manually", with the guest's text) before `ParseError`. Test:
+> `test_parser_unavailable_touches_nothing_and_notifies`.
+
 **2. Any background-processing failure is unrecoverable and invisible.** #1 generalized.
 Because the dedup key is persisted *before* the message's effect (`webhook.py:165` commits,
 then routing at `:179-186`), the design favors "never double-process" over "never lose."
 Reasonable trade — but every exception after that commit permanently swallows the reply
 with no trace for the Host. Wrap per-message routing in a try/except that notifies the Host
 ("couldn't process the reply from X") on any failure.
+
+> **✅ Resolved (2026-06-18, `m13-inbound-resilience`):** the routing block in `_ingest_message`
+> is now wrapped in `try/except Exception` → log, `session.rollback()`, notify the Host. The
+> dedup row is committed separately, so idempotency holds while nothing is silently lost. Test:
+> `test_background_failure_is_caught_and_host_notified`.
 
 **3. Templates are sent with no `components` — guest-name personalization is impossible
 (the `דנה` bug in TODO.md).**

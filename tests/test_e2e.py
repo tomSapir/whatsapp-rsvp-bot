@@ -29,7 +29,7 @@ from app.models import (
     Rsvp,
 )
 from app.notify import FeedNotifier, recent_notifications
-from app.parser import Intent, ParsedReply, StubReplyParser
+from app.parser import Intent, ParsedReply, ReplyParser, StubReplyParser
 from app.webhook import create_webhook_app
 from app.whatsapp import FakeWhatsAppClient
 
@@ -239,6 +239,57 @@ def test_unknown_number_logged_and_notified(harness):
         assert session.query(Rsvp).count() == 0
     assert whatsapp.sent == []
     assert any("unknown number" in n for n in _feed(session_factory))
+
+
+class _BoomParser(ReplyParser):
+    """Fails with a *non*-ParseError — stands in for any unexpected break while routing
+    (a state-machine bug, a failed commit, a WhatsApp send error). The conversation layer
+    doesn't catch it, so it exercises the webhook's last-resort safety net."""
+
+    def parse(self, text: str) -> ParsedReply:
+        raise RuntimeError("unexpected boom in routing")
+
+
+def test_background_failure_is_caught_and_host_notified(tmp_path):
+    """An exception after the idempotency commit must not vanish: the inbound row stays
+    (idempotency holds), no RSVP is written, nothing is sent, and the Host is notified —
+    instead of Starlette silently logging it while the guest's reply is lost for good."""
+    engine = create_db_engine(f"sqlite:///{tmp_path / 'boom.sqlite3'}")
+    init_db(engine)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    with session_factory() as session:
+        session.add(
+            Invitation(
+                name="Dana",
+                phone=DANA_PHONE,
+                language=Language.he,
+                status=InvitationStatus.invited,
+                conversation_state=ConversationState.awaiting_yesno,
+            )
+        )
+        session.commit()
+
+    whatsapp = FakeWhatsAppClient()
+    app = create_webhook_app(
+        verify_token=VERIFY_TOKEN,
+        app_secret=APP_SECRET,
+        session_factory=session_factory,
+        notify=FeedNotifier(session_factory),
+        whatsapp=whatsapp,
+        parser=_BoomParser(),
+    )
+    with TestClient(app) as client:
+        # _post asserts 200 — only reachable because the safety net swallows the exception
+        # (an uncaught background-task error would surface as a 500 from the TestClient).
+        _post(client, _text_message(DANA_WA_ID, "wamid.BOOM", "כן! נגיע 3"))
+
+        with session_factory() as session:
+            (message,) = session.query(Message).all()  # inbound row survived
+            assert message.wa_message_id == "wamid.BOOM"
+            assert session.query(Rsvp).count() == 0  # routing rolled back
+        assert whatsapp.sent == []
+        assert any("Couldn't process the reply" in n for n in _feed(session_factory))
+    engine.dispose()
 
 
 def test_duplicate_delivery_fully_idempotent(harness):

@@ -175,18 +175,32 @@ def _ingest_message(
         if whatsapp is None or parser is None:
             return  # ingestion-only wiring (M4 tests); production always passes both
 
-        # Route into the M5 conversation engine, inside the same session.
-        if message_type in ("button", "interactive") and body:
-            handle_button_reply(
-                session, invitation, body, whatsapp=whatsapp, notify=notify
-            )
-        elif message_type == "text" and body:
-            handle_text_reply(
-                session, invitation, body, parser=parser, whatsapp=whatsapp, notify=notify
-            )
-        else:
-            logger.info(
-                "unhandled inbound type %r from %s — logged only", message_type, wa_id
+        # Route into the M5 conversation engine, inside the same session. This runs in a
+        # background task *after* the 200 and *after* the idempotency row was committed
+        # above — so an unhandled exception here would just be logged by Starlette and the
+        # reply lost for good (Meta won't redeliver, and the dedup row means a manual
+        # redelivery is skipped). Guard it: on any failure roll back the half-applied writes
+        # and tell the Host, so a reply is never silently dropped.
+        try:
+            if message_type in ("button", "interactive") and body:
+                handle_button_reply(
+                    session, invitation, body, whatsapp=whatsapp, notify=notify
+                )
+            elif message_type == "text" and body:
+                handle_text_reply(
+                    session, invitation, body, parser=parser, whatsapp=whatsapp, notify=notify
+                )
+            else:
+                logger.info(
+                    "unhandled inbound type %r from %s — logged only", message_type, wa_id
+                )
+        except Exception:
+            logger.exception("failed to process reply from %s", invitation.phone)
+            session.rollback()  # the dedup row is committed separately, so it survives
+            notify(
+                f"⚠️ Couldn't process the reply from {invitation.name} "
+                f"({invitation.phone}) — something went wrong on our side; please check "
+                "with them directly."
             )
 
 

@@ -53,7 +53,7 @@ from app.models import (
     MessageType,
     Rsvp,
 )
-from app.parser import Intent, ParseError, ReplyParser
+from app.parser import Intent, ParseError, ParserUnavailable, ReplyParser
 from app.whatsapp import WhatsAppClient
 
 logger = logging.getLogger(__name__)
@@ -139,6 +139,17 @@ def handle_text_reply(
     """A free-text reply — parse to structure, then route off the closed ``intent``."""
     try:
         parsed = parser.parse(text)
+    except ParserUnavailable as exc:
+        # The reply may be perfectly fine — we just couldn't reach the model. Don't lose it:
+        # surface the guest's text so the Host can record it by hand (must precede the
+        # ParseError branch, since ParserUnavailable is a subclass of it).
+        logger.warning("parser unavailable for %s: %s", invitation.phone, exc)
+        notify(
+            f"⚠️ Couldn't process the reply from {invitation.name} right now: {text!r} — "
+            "our understanding service was unreachable; nothing was changed, please handle "
+            "it manually."
+        )
+        return
     except ParseError as exc:
         logger.warning("parse failure for %s: %s", invitation.phone, exc)
         notify(

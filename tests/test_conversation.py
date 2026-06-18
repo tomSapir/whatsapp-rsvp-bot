@@ -32,7 +32,7 @@ from app.models import (
     MessageDirection,
     Rsvp,
 )
-from app.parser import Intent, ParsedReply, StubReplyParser
+from app.parser import Intent, ParsedReply, ParserUnavailable, ReplyParser, StubReplyParser
 from app.whatsapp import FakeWhatsAppClient
 
 PHONE = "+972502345678"
@@ -339,6 +339,31 @@ def test_parse_failure_touches_nothing_and_notifies(session, whatsapp, notificat
     )
     assert invitation.rsvp.party_size == 4
     assert len(notifications) == 1 and "Couldn't understand" in notifications[0]
+
+
+class _UnavailableParser(ReplyParser):
+    """A parser that always fails to *reach* the model (OpenAI down / timeout)."""
+
+    def parse(self, text: str) -> ParsedReply:
+        raise ParserUnavailable("OpenAI request failed: boom")
+
+
+def test_parser_unavailable_touches_nothing_and_notifies(session, whatsapp, notifications):
+    """A transport/API failure must not silently drop the reply: nothing changes and the
+    Host is told to handle it manually — with a message distinct from 'couldn't understand'
+    so the Host knows the reply was fine and just needs re-recording."""
+    invitation = _invitation(session, attending=True, party_size=4)
+    handle_text_reply(
+        session,
+        invitation,
+        "כן, נגיע 3",
+        parser=_UnavailableParser(),
+        whatsapp=whatsapp,
+        notify=notifications.append,
+    )
+    assert invitation.rsvp.party_size == 4  # untouched
+    assert whatsapp.sent == []  # no follow-up/confirmation went out
+    assert len(notifications) == 1 and "unreachable" in notifications[0]
 
 
 def test_party_size_on_decline_not_saved(session, whatsapp, notifications):
