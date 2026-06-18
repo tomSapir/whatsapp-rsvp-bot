@@ -12,8 +12,9 @@ checklist see [STEPS.md](./STEPS.md).
 
 - [ ] 📋 Work through [CODE_REVIEW.md](./CODE_REVIEW.md) (full deep review, 2026-06-17).
       Done so far (branch `m13-inbound-resilience`): ✅ **#1 + #2** — host-notify-on-failure
-      wrapper + OpenAI timeout/`ParserUnavailable` close the silent-drop gap. Next: **#5**
-      (CSV formula injection), then the minor #4/#6. *(#3 "template `components`" was a
+      wrapper + OpenAI timeout/`ParserUnavailable` close the silent-drop gap; ✅ **#5** — CSV
+      formula injection defanged (`_csv_safe`). Left: the minor **#4** (send-before-commit
+      ordering) and **#6** (narrow the `IntegrityError` catch). *(#3 "template `components`" was a
       misdiagnosis — see the `דנה` item below; the code is correct, templates are
       deliberately parameter-less.)*
 - [⏳] 🐛 **`דנה` bug — WAITING ON META APPROVAL.** Root cause (2026-06-18): the Hebrew

@@ -131,3 +131,22 @@ def test_csv_exports_unknown_size_as_one_and_flags_it(populated):
 
     assert rows["Di"]["attending"] == ""  # no RSVP yet
     assert rows["Ed"]["status"] == "draft"
+
+
+def test_csv_export_neutralizes_formula_injection(session):
+    """Guest free text that looks like a spreadsheet formula is defanged with a leading '
+    (OWASP CSV Injection); phone (E.164 '+') is likewise forced to text, not a number."""
+    _guest(
+        session,
+        "Mallory",
+        "+972502345670",
+        InvitationStatus.confirmed,
+        attending=True,
+        party_size=2,
+        dietary="=HYPERLINK('https://evil.tld','free food')",
+        note="-1 then +1",
+    )
+    row = {r["name"]: r for r in csv.DictReader(io.StringIO(export_csv(session)))}["Mallory"]
+    assert row["dietary"].startswith("'=")  # formula neutralized, not executed
+    assert row["note"].startswith("'-")
+    assert row["phone"] == "'+972502345670"  # stays text, Excel won't read it as a number

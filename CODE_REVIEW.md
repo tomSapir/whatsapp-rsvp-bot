@@ -95,6 +95,10 @@ idempotent.
 when the Host opens the CSV in Excel/Sheets. Fix: prefix any cell starting with
 `= + - @ \t \r` with a `'`.
 
+> **✅ Resolved (2026-06-18, `m13-inbound-resilience`):** added `_csv_safe()` and applied it to
+> every cell in `export_csv`. Bonus: it also defangs `phone` (E.164 starts with `+`, which Excel
+> would otherwise read as a number and mangle). Test: `test_csv_export_neutralizes_formula_injection`.
+
 **6. `except IntegrityError` assumes "duplicate".** `webhook.py:166-169` treats *every*
 `IntegrityError` as a re-delivered webhook. Today only the `wa_message_id` UNIQUE can
 realistically trip there, so it's correct in practice — but another constraint would be

@@ -105,8 +105,27 @@ CSV_COLUMNS = [
 ]
 
 
+# A spreadsheet evaluates any cell that *begins* with one of these as a formula when it
+# opens a CSV — so guest-supplied free text (dietary, note) could exfiltrate the sheet or
+# fire a DDE payload. Prefixing with a single quote forces text (OWASP "CSV Injection").
+# Applying it to every cell also fixes phone: E.164 starts with '+', which Excel would
+# otherwise parse as a number and mangle into 972502345678.
+_FORMULA_LEADS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: object) -> object:
+    """Neutralize formula injection: a string starting with a formula lead char gets a ``'``."""
+    if isinstance(value, str) and value.startswith(_FORMULA_LEADS):
+        return "'" + value
+    return value
+
+
 def export_csv(session: Session) -> str:
-    """The guest list as CSV text; an unknown size exports as ``1`` with the flag set."""
+    """The guest list as CSV text; an unknown size exports as ``1`` with the flag set.
+
+    Every cell is run through :func:`_csv_safe`, so a guest whose ``dietary``/``note`` looks
+    like a spreadsheet formula can't have it executed when the Host opens the file.
+    """
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=CSV_COLUMNS, lineterminator="\n")
     writer.writeheader()
@@ -114,17 +133,16 @@ def export_csv(session: Session) -> str:
         rsvp = invitation.rsvp
         attending = rsvp.attending if rsvp else None
         size_unknown = bool(rsvp and rsvp.attending and rsvp.party_size is None)
-        writer.writerow(
-            {
-                "name": invitation.name,
-                "phone": invitation.phone,
-                "language": invitation.language.value,
-                "status": invitation.status.value,
-                "attending": "" if attending is None else str(attending).lower(),
-                "party_size": (1 if size_unknown else rsvp.party_size or "") if rsvp else "",
-                "size_unknown": "yes" if size_unknown else "",
-                "dietary": (rsvp.dietary or "") if rsvp else "",
-                "note": (rsvp.note or "") if rsvp else "",
-            }
-        )
+        row = {
+            "name": invitation.name,
+            "phone": invitation.phone,
+            "language": invitation.language.value,
+            "status": invitation.status.value,
+            "attending": "" if attending is None else str(attending).lower(),
+            "party_size": (1 if size_unknown else rsvp.party_size or "") if rsvp else "",
+            "size_unknown": "yes" if size_unknown else "",
+            "dietary": (rsvp.dietary or "") if rsvp else "",
+            "note": (rsvp.note or "") if rsvp else "",
+        }
+        writer.writerow({column: _csv_safe(value) for column, value in row.items()})
     return buffer.getvalue()
