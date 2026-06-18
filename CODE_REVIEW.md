@@ -90,6 +90,11 @@ of you?" but the RSVP state change is rolled back — and the inbound dedup key 
 persisted, so redelivery won't repair it. Prefer commit-then-send, or make the ack
 idempotent.
 
+> **✅ Resolved (2026-06-18, `m13-inbound-resilience`):** `_apply_reply` now commits the
+> RSVP/status/state change *before* sending the follow-up/confirmation (each ack logs its
+> outbound row in its own commit). A send failure can no longer roll back a recorded reply.
+> Test: `test_state_committed_before_ack_send_survives_a_send_failure`.
+
 **5. CSV formula injection.** `export_csv` (`reporting.py:108-130`) writes guest-originated
 `dietary`/`note` straight into cells. A value like `=HYPERLINK(...)` becomes a live formula
 when the Host opens the CSV in Excel/Sheets. Fix: prefix any cell starting with
@@ -104,6 +109,11 @@ when the Host opens the CSV in Excel/Sheets. Fix: prefix any cell starting with
 realistically trip there, so it's correct in practice — but another constraint would be
 silently misclassified as a duplicate and dropped. Narrowing (inspect the failed
 constraint) makes it robust to future schema changes.
+
+> **✅ Resolved (2026-06-18, `m13-inbound-resilience`):** the catch now re-raises unless the
+> failed constraint is the `wa_message_id` UNIQUE (`"wa_message_id" in str(exc.orig)`), so a
+> future constraint can't be silently swallowed as a "duplicate". The existing duplicate-delivery
+> tests confirm real re-deliveries are still deduped.
 
 ### ⚪ Nits / notes (no action needed at this scale)
 

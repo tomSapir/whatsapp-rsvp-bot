@@ -163,8 +163,13 @@ def _ingest_message(
         )
         try:
             session.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             session.rollback()
+            # Only the wa_message_id UNIQUE means a Meta re-delivery. Any other constraint
+            # (a future schema change) is a real error — don't silently misclassify it as a
+            # duplicate and drop the message; let it surface.
+            if "wa_message_id" not in str(exc.orig):
+                raise
             logger.info("duplicate webhook delivery for %s — skipping", wa_message_id)
             return
 

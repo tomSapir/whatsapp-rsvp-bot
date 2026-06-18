@@ -251,17 +251,23 @@ def _apply_reply(
         invitation.conversation_state = ConversationState.done
 
     rsvp.responded_at = _utcnow()
+    session.commit()  # make the RSVP/status/state change durable BEFORE sending any ack
 
+    # Commit-then-send: only ack the guest once their state is persisted. The old order sent
+    # first, so a failed commit could leave the guest acked ("how many of you?") for a change
+    # that then rolled back — unrepairable, since the inbound dedup key is already saved. Each
+    # ack logs its own outbound row in a follow-up commit.
     new_state = invitation.conversation_state
     if (
         new_state is ConversationState.awaiting_details
         and previous_state is not ConversationState.awaiting_details
     ):
         _send_follow_up(session, invitation, whatsapp)
+        session.commit()
     elif new_state is ConversationState.done and previous_state is not ConversationState.done:
         _send_confirmation(session, invitation, rsvp, whatsapp)
+        session.commit()
 
-    session.commit()
     notify(_summary(invitation, rsvp))
 
 

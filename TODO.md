@@ -10,13 +10,12 @@ checklist see [STEPS.md](./STEPS.md).
 
 ## Now / next
 
-- [ ] 📋 Work through [CODE_REVIEW.md](./CODE_REVIEW.md) (full deep review, 2026-06-17).
-      Done so far (branch `m13-inbound-resilience`): ✅ **#1 + #2** — host-notify-on-failure
-      wrapper + OpenAI timeout/`ParserUnavailable` close the silent-drop gap; ✅ **#5** — CSV
-      formula injection defanged (`_csv_safe`). Left: the minor **#4** (send-before-commit
-      ordering) and **#6** (narrow the `IntegrityError` catch). *(#3 "template `components`" was a
-      misdiagnosis — see the `דנה` item below; the code is correct, templates are
-      deliberately parameter-less.)*
+- [x] 📋 Work through [CODE_REVIEW.md](./CODE_REVIEW.md) (full deep review, 2026-06-17) — all
+      actionable findings done on branch `m13-inbound-resilience`: ✅ **#1 + #2** (host-notify
+      on failure + OpenAI timeout/`ParserUnavailable`), ✅ **#4** (commit-then-send), ✅ **#5**
+      (CSV formula injection defanged), ✅ **#6** (narrowed `IntegrityError` catch). **#3** was a
+      misdiagnosis (the `דנה` item below — code is correct, templates are deliberately
+      parameter-less). Only the ⚪ nits are left, intentionally deferred at this scale.
 - [⏳] 🐛 **`דנה` bug — WAITING ON META APPROVAL.** Root cause (2026-06-18): the Hebrew
       `rsvp_details_nudge` template body hardcodes "תום ו**דנה**" instead of "תום ו**עמית**"
       — a one-word typo baked into the approved template text, *not* a code bug (the live

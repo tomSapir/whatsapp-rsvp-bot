@@ -366,6 +366,25 @@ def test_parser_unavailable_touches_nothing_and_notifies(session, whatsapp, noti
     assert len(notifications) == 1 and "unreachable" in notifications[0]
 
 
+def test_state_committed_before_ack_send_survives_a_send_failure(session, notifications):
+    """Commit-then-send (#4): if the guest ack fails to send, the RSVP is still durably
+    recorded. The old send-then-commit order rolled the change back on a send failure, and
+    the inbound dedup key meant a redelivery couldn't repair it."""
+    invitation = _invitation(session)  # invited / awaiting_yesno, no RSVP yet
+
+    class _SendFails(FakeWhatsAppClient):
+        def send_text(self, to: str, body: str):
+            raise RuntimeError("network down")
+
+    with pytest.raises(RuntimeError):
+        handle_button_reply(
+            session, invitation, "כן", whatsapp=_SendFails(), notify=notifications.append
+        )
+    session.rollback()  # discard anything uncommitted — a committed Yes must survive this
+    assert invitation.status is InvitationStatus.confirmed
+    assert invitation.rsvp is not None and invitation.rsvp.attending is True
+
+
 def test_party_size_on_decline_not_saved(session, whatsapp, notifications):
     invitation = _invitation(session)
     _text(
