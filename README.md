@@ -24,7 +24,7 @@ RSVP changes are handled too: the **latest reply always wins**.
 
 ## Status
 
-🔧 **Code complete (M0–M9) — 125 offline tests passing.** What remains is the live Meta
+🔧 **Code complete (M0–M9) — 146 offline tests passing.** What remains is the live Meta
 side: template approval in WhatsApp Manager and the manual smoke test (STEPS M9.3–9.4).
 
 - [x] Requirements & plan finalized — [PLAN.md](./PLAN.md)
